@@ -284,6 +284,37 @@ section[data-testid="stSidebar"] .dm-logo-text .name {{ color: #FFFFFF !importan
     text-transform: uppercase; color: {DM_MUTED}; font-weight: 700; margin-bottom: 0.2rem; }}
 .dm-bel-status {{ font-family: 'Poppins', sans-serif; font-size: 0.95rem; font-weight: 600; color: #45403c; }}
 .dm-bel-meta {{ font-family: 'Poppins', sans-serif; font-size: 0.8rem; color: {DM_MUTED}; margin-top: 0.15rem; }}
+
+/* ---- Logo in de sidebar = knop terug naar de tool-keuze ----
+   De knop wordt volledig ontdaan van z'n knop-uiterlijk en opgebouwd tot de logo-lockup:
+   het zwarte "M"-vierkant komt uit ::before, de wordmark is het opschrift zelf. */
+section[data-testid="stSidebar"] .st-key-logo_home button,
+section[data-testid="stSidebar"] .st-key-logo_home button:hover,
+section[data-testid="stSidebar"] .st-key-logo_home button:focus,
+section[data-testid="stSidebar"] .st-key-logo_home button:active {{
+    background: transparent !important; border: none !important; box-shadow: none !important;
+    padding: 0 !important; min-height: 0 !important; justify-content: flex-start !important;
+}}
+section[data-testid="stSidebar"] .st-key-logo_home button p,
+.dm-logo-static {{
+    font-family: 'Playfair Display', serif !important; font-weight: 700 !important;
+    font-size: 16px !important; color: #FFFFFF !important; line-height: 1.1 !important;
+    display: inline-flex !important; align-items: center !important; margin: 0 !important;
+}}
+section[data-testid="stSidebar"] .st-key-logo_home button p::before,
+.dm-logo-static::before {{
+    content: 'M'; display: inline-flex; align-items: center; justify-content: center;
+    width: 36px; height: 36px; min-width: 36px; margin-right: 12px;
+    background: #1a1a1a; color: #FFFFFF; border-radius: 8px;
+    font-family: 'Playfair Display', serif; font-weight: 700; font-size: 18px;
+}}
+section[data-testid="stSidebar"] .st-key-logo_home button:hover p {{ opacity: 0.75; }}
+section[data-testid="stSidebar"] .st-key-logo_home {{ margin-bottom: 0.1rem; }}
+.dm-logo-tagline {{
+    font-family: 'Poppins', sans-serif; font-size: 8px; letter-spacing: 2.5px;
+    color: {DM_GREEN} !important; text-transform: uppercase; font-weight: 600;
+    margin: 0 0 0.8rem 48px;
+}}
 </style>
 """
 
@@ -303,21 +334,24 @@ def _logo_data_uri():
     return None
 
 
-def render_logo(tagline='RECOVERY & PERFORMANCE'):
-    """Compacte logo-lockup, bv. bovenaan de sidebar."""
+def render_logo(tagline='RECOVERY & PERFORMANCE', clickable=True):
+    """Compacte logo-lockup bovenaan de sidebar, tevens de weg terug naar de tool-keuze.
+
+    Bewust een Streamlit-knop en géén <a href>: een echte link herlaadt de pagina, waardoor
+    Streamlit een nieuwe sessie start. De coach zou dan uitgelogd worden en z'n analyses
+    kwijtraken bij een klik op het logo. De knop wordt via CSS (.st-key-logo_home) omgetoverd
+    tot de logo-lockup, zodat het er gewoon als het logo uitziet."""
     data_uri = _logo_data_uri()
     if data_uri:
-        st.markdown(f'<img src="{data_uri}" style="height:40px; margin-bottom:0.6rem;" />', unsafe_allow_html=True)
+        st.markdown(f'<img src="{data_uri}" style="height:40px;" />', unsafe_allow_html=True)
+
+    if clickable:
+        if st.button('De Musculatuur', key='logo_home', help='Terug naar alle tools',
+                     use_container_width=True):
+            goto(PAGE_HOME)
     else:
-        st.markdown(f"""
-        <div class="dm-logo-wrap">
-          <div class="dm-logo-mark" style="width:36px;height:36px;font-size:18px;border-radius:8px;">M</div>
-          <div class="dm-logo-text">
-            <div class="name" style="font-size:16px;">De Musculatuur</div>
-            <div class="tagline" style="font-size:8px;">{tagline}</div>
-          </div>
-        </div>
-        """, unsafe_allow_html=True)
+        st.markdown('<div class="dm-logo-static">De Musculatuur</div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="dm-logo-tagline">{tagline}</div>', unsafe_allow_html=True)
 
 
 def render_hero(subtitle, desc):
@@ -976,7 +1010,8 @@ def main():
                     'De tools van De Musculatuur, op één plek — per atleet, in seconden.')
 
     with st.sidebar:
-        render_logo()
+        # Op de startpagina hoeft het logo nergens heen te leiden; elders is het de weg terug.
+        render_logo(clickable=page != PAGE_HOME)
         # Enkel de Belastbaarheidsanalyse heeft eigen sidebar-bediening; op de andere
         # pagina's zou een extra scheidingslijn een leeg blok afbakenen.
         heeft_eigen_sidebar = page == PAGE_BELASTBAARHEID
