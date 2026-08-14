@@ -1,0 +1,674 @@
+"""
+De Musculatuur — AI performance assistent (web-app, v1)
+
+Start lokaal:
+    pip install streamlit pandas numpy matplotlib --break-system-packages
+    streamlit run app.py
+
+Gedeelde toegang: iedereen met de link + wachtwoord kan de tool gebruiken
+(geen individuele accounts in v1 — zie roadmap voor multi-coach/login als
+latere fase). Wachtwoord instellen via omgevingsvariabele DEMUSCULATUUR_PASSWORD
+of via .streamlit/secrets.toml (key: APP_PASSWORD). Zonder configuratie geldt
+een duidelijk zichtbaar standaardwachtwoord — wijzig dit voor echt gebruik.
+"""
+import os
+import io
+import re
+import json
+import base64
+
+import numpy as np
+import pandas as pd
+import streamlit as st
+import matplotlib
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
+import matplotlib.dates as mdates
+
+import core
+
+st.set_page_config(page_title='De Musculatuur — AI performance assistent', page_icon='💪', layout='wide')
+
+DEFAULT_PASSWORD = 'musculatuur2026'
+
+# ---------------------------------------------------------------------------
+# Huisstijl De Musculatuur
+# Kleuren/fonts overgenomen van demusculatuur.be (crème/perzik achtergronden,
+# bordeaux serif koppen, saliegroen als actiekleur, donkerbruine sidebar zoals
+# hun footer). Live CSS kon niet opgehaald worden (geen browsertoegang vanuit
+# deze sessie) — dit is gebaseerd op de aangeleverde screenshots. Zet een
+# logo.png in deze map en de header gebruikt 'm automatisch i.p.v. de
+# tekst-wordmark hieronder.
+# ---------------------------------------------------------------------------
+DM_MAROON = '#5B1F2C'
+DM_GREEN = '#6FA98A'
+DM_GREEN_DARK = '#5C9179'
+DM_CREAM = '#F2E6DE'
+DM_PEACH = '#F0D7B7'
+DM_BROWN = '#3B2820'
+DM_MUTED = '#6E7B99'
+DM_BG = '#FBF6F2'
+
+BRAND_CSS = f"""
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=Poppins:wght@400;500;600;700&display=swap');
+
+html, body, [class*="css"] {{ font-family: 'Poppins', sans-serif; }}
+
+.stApp {{ background-color: {DM_BG}; }}
+
+.block-container {{ padding-top: 2rem; max-width: 1100px; }}
+
+h1, h2, h3 {{ font-family: 'Playfair Display', serif !important; color: {DM_MAROON} !important; }}
+
+div[data-testid="stCaptionContainer"], small {{ color: {DM_MUTED} !important; }}
+
+/* ---- Premium hero-banner (logo groot, bovenaan) ---- */
+.dm-hero {{
+    background: linear-gradient(135deg, {DM_CREAM} 0%, {DM_PEACH} 100%);
+    border-radius: 28px;
+    padding: 3rem 2rem 2.75rem 2rem;
+    text-align: center;
+    margin-bottom: 2.25rem;
+    box-shadow: 0 12px 34px rgba(59,40,32,0.10);
+}}
+.dm-hero-mark {{
+    width: 88px; height: 88px; margin: 0 auto 1.1rem auto;
+    background: #1a1a1a; border-radius: 20px;
+    display: flex; align-items: center; justify-content: center;
+    color: #FFFFFF; font-family: 'Playfair Display', serif; font-weight: 700; font-size: 46px;
+    box-shadow: 0 8px 20px rgba(0,0,0,0.18);
+}}
+.dm-hero-logo-img {{ height: 88px; margin: 0 auto 1.1rem auto; display: block; }}
+.dm-hero-name {{ font-family: 'Playfair Display', serif; font-weight: 700; font-size: 2.5rem; color: #1a1a1a; margin-bottom: 0.15rem; }}
+.dm-hero-tagline {{ font-family: 'Poppins', sans-serif; font-size: 12px; letter-spacing: 4px;
+    color: {DM_GREEN_DARK}; text-transform: uppercase; font-weight: 700; margin-bottom: 1.15rem; }}
+.dm-hero-sub {{ font-family: 'Playfair Display', serif; font-size: 1.35rem; color: {DM_MAROON}; font-weight: 700; }}
+.dm-hero-desc {{ font-family: 'Poppins', sans-serif; color: {DM_MUTED}; font-size: 0.95rem; margin-top: 0.35rem; }}
+
+/* ---- Lege staat (nog geen atleet geanalyseerd) ---- */
+.dm-empty-state {{
+    background: #FFFFFF; border: 2px dashed #E3D5C8; border-radius: 24px;
+    padding: 4rem 2rem; text-align: center; margin-top: 0.5rem;
+}}
+.dm-empty-icon {{ font-size: 2.8rem; margin-bottom: 0.75rem; }}
+.dm-empty-title {{ font-family: 'Playfair Display', serif; color: {DM_MAROON}; font-size: 1.4rem; font-weight: 700; margin-bottom: 0.5rem; }}
+.dm-empty-desc {{ font-family: 'Poppins', sans-serif; color: {DM_MUTED}; font-size: 0.95rem; max-width: 440px; margin: 0 auto; line-height: 1.6; }}
+.dm-empty-desc strong {{ color: {DM_MAROON}; }}
+
+/* Sidebar in het donkerbruin van hun footer */
+section[data-testid="stSidebar"] {{ background-color: {DM_BROWN}; padding-top: 0.5rem; }}
+section[data-testid="stSidebar"] * {{ color: {DM_CREAM} !important; }}
+section[data-testid="stSidebar"] h1, section[data-testid="stSidebar"] h2, section[data-testid="stSidebar"] h3 {{
+    color: #FFFFFF !important;
+}}
+section[data-testid="stSidebar"] input, section[data-testid="stSidebar"] textarea {{
+    color: {DM_BROWN} !important;
+}}
+section[data-testid="stSidebar"] .dm-sidebar-section {{
+    color: #FFFFFF !important; font-family: 'Playfair Display', serif; font-weight: 700;
+    font-size: 1.15rem; margin: 0.25rem 0 0.9rem 0;
+}}
+section[data-testid="stSidebar"] .dm-step {{
+    color: {DM_GREEN} !important; font-family: 'Poppins', sans-serif; font-size: 11px;
+    letter-spacing: 1.5px; text-transform: uppercase; font-weight: 700; margin: 1rem 0 0.3rem 0;
+}}
+section[data-testid="stSidebar"] .dm-sidebar-divider {{
+    height: 1px; background: rgba(255,255,255,0.14); margin: 1.2rem 0; border: none;
+}}
+
+/* Upload-zone: mooie, duidelijke drop-zone i.p.v. het standaard grijze vakje */
+[data-testid="stFileUploaderDropzone"] {{
+    background: #FFFFFF !important;
+    border: 2px dashed {DM_GREEN} !important;
+    border-radius: 16px !important;
+    padding: 0.5rem !important;
+    transition: border-color 0.15s ease, background 0.15s ease;
+}}
+[data-testid="stFileUploaderDropzone"]:hover {{
+    border-color: {DM_GREEN_DARK} !important;
+    background: #F6FBF8 !important;
+}}
+[data-testid="stFileUploaderDropzone"] button {{
+    background-color: {DM_GREEN} !important; color: #FFFFFF !important; border-radius: 999px !important;
+}}
+
+/* Knoppen: saliegroene pil, zoals "Reserveren"/"Toevoegen" op de site */
+.stButton > button, .stDownloadButton > button {{
+    background-color: {DM_GREEN};
+    color: #FFFFFF;
+    border: none;
+    border-radius: 999px;
+    font-weight: 600;
+    padding: 0.5rem 1.5rem;
+}}
+.stButton > button:hover, .stDownloadButton > button:hover {{
+    background-color: {DM_GREEN_DARK};
+    color: #FFFFFF;
+}}
+.stButton > button:disabled, .stButton > button:disabled:hover {{
+    background-color: #FFFFFF !important;
+    color: {DM_BROWN} !important;
+    opacity: 1 !important;
+    border: 1.5px solid #C9BBA8 !important;
+}}
+.stButton > button:disabled p, .stButton > button:disabled span, .stButton > button:disabled div {{
+    color: {DM_BROWN} !important;
+    opacity: 1 !important;
+}}
+
+/* Tabs in serif, actieve tab in saliegroen */
+.stTabs [data-baseweb="tab"] {{ font-family: 'Playfair Display', serif; color: {DM_MAROON}; font-weight: 600; }}
+.stTabs [aria-selected="true"] {{ color: {DM_GREEN} !important; border-bottom-color: {DM_GREEN} !important; }}
+
+/* Expander-titel (Methodologie) */
+[data-testid="stExpander"] summary {{ font-family: 'Playfair Display', serif; color: {DM_MAROON}; font-weight: 600; }}
+
+/* Alerts iets ronder, past bij de kaartjes-stijl van de site */
+div[data-testid="stAlert"] {{ border-radius: 12px; }}
+
+/* Logo-lockup */
+.dm-logo-wrap {{ display: flex; align-items: center; gap: 14px; margin-bottom: 0.35rem; }}
+.dm-logo-mark {{
+    width: 46px; height: 46px; min-width: 46px;
+    background: #1a1a1a; border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    color: #FFFFFF; font-family: 'Playfair Display', serif; font-weight: 700; font-size: 24px;
+}}
+.dm-logo-text .name {{ font-family: 'Playfair Display', serif; font-weight: 700; font-size: 21px; color: #1a1a1a; line-height: 1.1; }}
+.dm-logo-text .tagline {{ font-family: 'Poppins', sans-serif; font-size: 10px; letter-spacing: 2.5px;
+    color: {DM_GREEN}; text-transform: uppercase; font-weight: 600; }}
+section[data-testid="stSidebar"] .dm-logo-text .name {{ color: #FFFFFF !important; }}
+
+.dm-page-title {{ font-family: 'Playfair Display', serif; color: {DM_MAROON}; font-size: 1.5rem;
+    font-weight: 700; margin: 0.1rem 0 0.1rem 0; }}
+
+/* Kernbevindingen-kaart, zoals de witte cards op de site */
+.dm-card {{
+    background: #FFFFFF; border-radius: 16px; padding: 1.25rem 1.5rem;
+    box-shadow: 0 2px 10px rgba(59,40,32,0.08); border-left: 4px solid {DM_GREEN};
+    margin-bottom: 0.5rem;
+}}
+.dm-card-title {{ font-family: 'Playfair Display', serif; color: {DM_MAROON}; font-size: 1.15rem;
+    font-weight: 700; margin-bottom: 0.6rem; }}
+.dm-bullet-list {{ margin: 0; padding-left: 1.1rem; }}
+.dm-bullet-list li {{ color: #45403c; line-height: 1.55; margin-bottom: 0.35rem; }}
+.dm-bullet-list strong {{ color: {DM_MAROON}; }}
+
+/* Trainingsadvies-kaart */
+.dm-advies-item {{ border-radius: 12px; padding: 0.85rem 1.1rem; margin-bottom: 0.6rem; border-left: 4px solid; }}
+.dm-advies-item:last-child {{ margin-bottom: 0; }}
+.dm-advies-title {{ font-family: 'Poppins', sans-serif; font-weight: 700; font-size: 0.95rem; margin-bottom: 0.2rem; }}
+.dm-advies-text {{ font-family: 'Poppins', sans-serif; font-size: 0.9rem; line-height: 1.55; color: #45403c; }}
+.dm-advies-alert {{ background: #FBE7E2; border-left-color: #a13a2a; }}
+.dm-advies-alert .dm-advies-title {{ color: #a13a2a; }}
+.dm-advies-warning {{ background: #FDF3E0; border-left-color: #8a6a1f; }}
+.dm-advies-warning .dm-advies-title {{ color: #8a6a1f; }}
+.dm-advies-positive {{ background: #E3F3EA; border-left-color: #2f6b4f; }}
+.dm-advies-positive .dm-advies-title {{ color: #2f6b4f; }}
+.dm-advies-info {{ background: #EEF1F6; border-left-color: {DM_MUTED}; }}
+.dm-advies-info .dm-advies-title {{ color: {DM_MUTED}; }}
+
+/* Jaarplanning-blokken (macro/mesocycli per A-doel) */
+.dm-plan-block {{ border-radius: 12px; padding: 0.85rem 1.1rem; margin-bottom: 0.6rem; border-left: 4px solid; }}
+.dm-plan-block:last-child {{ margin-bottom: 0; }}
+.dm-plan-header {{ display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap; gap: 0.5rem; }}
+.dm-plan-fase {{ font-family: 'Playfair Display', serif; font-weight: 700; font-size: 1rem; color: {DM_BROWN}; }}
+.dm-plan-dates {{ font-family: 'Poppins', sans-serif; font-size: 0.8rem; color: {DM_MUTED}; white-space: nowrap; }}
+.dm-plan-meta {{ font-family: 'Poppins', sans-serif; font-size: 0.8rem; color: {DM_MUTED}; margin-top: 0.15rem; font-weight: 600; }}
+.dm-plan-focus {{ font-family: 'Poppins', sans-serif; font-size: 0.9rem; color: #45403c; margin-top: 0.35rem; line-height: 1.5; }}
+.dm-plan-note {{ font-family: 'Poppins', sans-serif; font-size: 0.82rem; color: {DM_MAROON}; margin-top: 0.4rem; font-style: italic; }}
+.dm-plan-transitie {{ background: #EEF1F6; border-left-color: {DM_MUTED}; }}
+.dm-plan-basis1, .dm-plan-basis2, .dm-plan-basis3 {{ background: #FBEFE0; border-left-color: #a8712a; }}
+.dm-plan-opbouw1, .dm-plan-opbouw2 {{ background: #FDF3E0; border-left-color: #8a6a1f; }}
+.dm-plan-piek {{ background: #F3E3E0; border-left-color: #8a3a2a; }}
+.dm-plan-taper_afbouw, .dm-plan-wedstrijdweek {{ background: #FBE7E2; border-left-color: #a13a2a; }}
+.dm-goal-chip {{
+    display: inline-flex; align-items: center; gap: 0.5rem; background: #FFFFFF;
+    border: 1px solid #E3D5C8; border-radius: 999px; padding: 0.4rem 0.9rem; margin: 0 0.4rem 0.4rem 0;
+    font-family: 'Poppins', sans-serif; font-size: 0.85rem; color: {DM_MAROON};
+}}
+</style>
+"""
+
+
+def inject_brand_css():
+    st.markdown(BRAND_CSS, unsafe_allow_html=True)
+
+
+@st.cache_data
+def _logo_data_uri():
+    """Zet logo.png (indien aanwezig) om naar een data-URI zodat we 'm inline in de HTML-hero kunnen tonen."""
+    logo_path = os.path.join(os.path.dirname(__file__), 'logo.png')
+    if os.path.exists(logo_path):
+        with open(logo_path, 'rb') as f:
+            b64 = base64.b64encode(f.read()).decode('utf-8')
+        return f'data:image/png;base64,{b64}'
+    return None
+
+
+def render_logo(tagline='RECOVERY & PERFORMANCE'):
+    """Compacte logo-lockup, bv. bovenaan de sidebar."""
+    data_uri = _logo_data_uri()
+    if data_uri:
+        st.markdown(f'<img src="{data_uri}" style="height:40px; margin-bottom:0.6rem;" />', unsafe_allow_html=True)
+    else:
+        st.markdown(f"""
+        <div class="dm-logo-wrap">
+          <div class="dm-logo-mark" style="width:36px;height:36px;font-size:18px;border-radius:8px;">M</div>
+          <div class="dm-logo-text">
+            <div class="name" style="font-size:16px;">De Musculatuur</div>
+            <div class="tagline" style="font-size:8px;">{tagline}</div>
+          </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+
+def render_hero(subtitle, desc):
+    """Groot, premium hero-blok met logo — bovenaan de login-pagina en het dashboard."""
+    data_uri = _logo_data_uri()
+    mark_html = f'<img src="{data_uri}" class="dm-hero-logo-img" />' if data_uri else '<div class="dm-hero-mark">M</div>'
+    st.markdown(f"""
+    <div class="dm-hero">
+      {mark_html}
+      <div class="dm-hero-name">De Musculatuur</div>
+      <div class="dm-hero-tagline">Recovery &amp; Performance</div>
+      <div class="dm-hero-sub">{subtitle}</div>
+      <div class="dm-hero-desc">{desc}</div>
+    </div>
+    """, unsafe_allow_html=True)
+
+
+def md_bold_to_html(text):
+    return re.sub(r'\*\*(.+?)\*\*', r'<strong>\1</strong>', text)
+
+
+def get_app_password():
+    try:
+        if 'APP_PASSWORD' in st.secrets:
+            return st.secrets['APP_PASSWORD']
+    except Exception:
+        pass
+    return os.environ.get('DEMUSCULATUUR_PASSWORD', DEFAULT_PASSWORD)
+
+
+def check_password():
+    """Simpele gedeelde-wachtwoord-gate voor alle coaches (v1 — geen individuele accounts)."""
+    if st.session_state.get('authed'):
+        return True
+    render_hero('Coach login', 'Interne tool voor coaches — voer het gedeelde wachtwoord in om verder te gaan.')
+    _, mid, _ = st.columns([1, 1.2, 1])
+    with mid:
+        pw = st.text_input('Wachtwoord', type='password')
+        login_clicked = st.button('Inloggen', type='primary', use_container_width=True)
+        if login_clicked:
+            if pw == get_app_password():
+                st.session_state['authed'] = True
+                st.rerun()
+            else:
+                st.error('Onjuist wachtwoord.')
+    return False
+
+
+def fmt(n, d=0):
+    if n is None:
+        return '–'
+    return f'{n:,.{d}f}'.replace(',', 'X').replace('.', ',').replace('X', '.')
+
+
+def make_chart(daily, acwr, today, athlete):
+    start = today - pd.Timedelta(days=182)
+    d_acwr = acwr[acwr.index >= start]
+    weekload = daily.rolling(7).sum()
+    w = weekload[weekload.index >= start]
+
+    DM_MAROON, DM_GREEN, DM_PEACH = '#5B1F2C', '#6FA98A', '#F0D7B7'
+
+    fig, ax1 = plt.subplots(figsize=(9, 4.0))
+    fig.patch.set_facecolor('#FBF6F2')
+    ax1.set_facecolor('#FBF6F2')
+    ax1.bar(w.index, w.values, width=0.9, color=DM_PEACH, edgecolor=DM_MAROON, linewidth=0.3,
+            label='Wekelijkse trainingslast (7d som)')
+    ax1.set_ylabel('Trainingslast (7d som)', color=DM_MAROON)
+    ax1.tick_params(axis='y', labelcolor=DM_MAROON)
+    ax1.xaxis.set_major_locator(mdates.MonthLocator())
+    ax1.xaxis.set_major_formatter(mdates.DateFormatter('%b %y'))
+    for spine in ax1.spines.values():
+        spine.set_visible(False)
+
+    ax2 = ax1.twinx()
+    ax2.plot(d_acwr.index, d_acwr.values, color=DM_MAROON, linewidth=2.2, label='A:C ratio')
+    ax2.axhspan(0.8, 1.3, color=DM_GREEN, alpha=0.18)
+    ax2.axhline(1.5, color=DM_MAROON, linestyle='--', linewidth=1, alpha=0.5)
+    ax2.axhline(0.8, color='#9c8b7f', linestyle=':', linewidth=1, alpha=0.6)
+    ax2.set_ylabel('A:C ratio', color=DM_MAROON)
+    ax2.tick_params(axis='y', labelcolor=DM_MAROON)
+    ax2.set_ylim(0, max(1.8, float(np.nanmax(d_acwr.values)) * 1.15 if len(d_acwr) else 1.8))
+    for spine in ax2.spines.values():
+        spine.set_visible(False)
+    fig.suptitle(f'Belastbaarheid laatste 6 maanden — {athlete}', fontweight='bold', color=DM_MAROON,
+                 fontfamily='serif', fontsize=13)
+    fig.tight_layout()
+    return fig
+
+
+def kernbevindingen(summary):
+    acwr = summary['acwr']
+    items = []
+    cur = acwr['current']
+    if cur is None:
+        status = 'geen recente data om een ratio te berekenen'
+    elif 0.8 <= cur <= 1.3:
+        status = 'binnen de veilige "sweet spot" (0,8-1,3)'
+    elif cur > 1.3:
+        status = 'boven de sweet spot: mogelijk verhoogd risico bij aanhoudende piekbelasting'
+    else:
+        status = 'onder de sweet spot: mogelijke onderbelasting/detraining'
+    items.append(f"Huidige A:C ratio: **{fmt(cur, 1) if cur is not None else '–'}** — {status}.")
+    items.append(f"Van de laatste {acwr['weeks_total']} weken zaten er **{acwr['weeks_green']}** in de sweet spot, "
+                 f"{acwr['weeks_high']} met piekbelasting (>1,3) en {acwr['weeks_low']} met onderbelasting (<0,8).")
+    p6 = summary['periods']['6m']
+    items.append(f"Laatste 6 maanden: {p6['sessies']} sessies, {fmt(p6['uren'], 1)}u, {fmt(p6['km'], 0)}km.")
+    if summary['gaps']:
+        for g in summary['gaps']:
+            items.append(f"Mogelijke blinde vlek: **{g['sport']}** komt historisch {g['totaal_historisch']}x voor "
+                         f"maar is afwezig in de laatste 6 maanden (laatste sessie: {g['laatste_sessie']}, {g['dagen_geleden']} dagen geleden).")
+    else:
+        items.append('Geen disciplines gevonden die historisch actief waren maar recent volledig afwezig zijn.')
+    return items
+
+
+def sport_table(period):
+    rows = period['bySport']
+    df = pd.DataFrame(rows)
+    if len(df) == 0:
+        return pd.DataFrame(columns=['Sport', 'Sessies', 'Uren', 'Km', 'Hoogtemeters', 'Gem. HS', 'Trainingslast'])
+    df = df.rename(columns={'sport': 'Sport', 'sessies': 'Sessies', 'uren': 'Uren', 'km': 'Km',
+                             'hm': 'Hoogtemeters', 'hr': 'Gem. HS', 'load': 'Trainingslast'})
+    df = df[['Sport', 'Sessies', 'Uren', 'Km', 'Hoogtemeters', 'Gem. HS', 'Trainingslast']]
+    total = pd.DataFrame([{
+        'Sport': 'TOTAAL', 'Sessies': period['sessies'], 'Uren': period['uren'], 'Km': period['km'],
+        'Hoogtemeters': period['hoogtemeters'], 'Gem. HS': None, 'Trainingslast': period['load'],
+    }])
+    return pd.concat([df, total], ignore_index=True)
+
+
+def render_jaarplanning(plan):
+    """Toont de voorgestelde macro/mesocyclus-structuur per A-doel (kaarten, kleurgecodeerd per fase)."""
+    if not plan['goals']:
+        st.caption('Nog geen A-doelen ingesteld. Voeg er hierboven toe om een voorgestelde jaarplanning te zien.')
+        return
+
+    blocks_by_goal = {}
+    for b in plan['blocks']:
+        blocks_by_goal.setdefault(b['doel'], []).append(b)
+
+    for g in plan['goals']:
+        st.markdown(f"##### {g['name']} · {g['discipline']} — {pd.Timestamp(g['date']).strftime('%d %B %Y')}")
+        if g['warning']:
+            st.warning(g['warning'])
+        st.caption(f"{g['weken_beschikbaar']} weken beschikbaar voor dit blok, terugwerkend gepland vanaf de wedstrijdweek.")
+
+        rows_html = ''
+        for b in blocks_by_goal.get(g['name'], []):
+            note_html = f'<div class="dm-plan-note">💡 {b["notitie"]}</div>' if b['notitie'] else ''
+            dates_txt = f'{b["start"].strftime("%d %b")} – {b["einde"].strftime("%d %b %Y")} ({b["weken"]} w.)'
+            rows_html += (
+                f'<div class="dm-plan-block dm-plan-{b["fase_key"]}">'
+                f'<div class="dm-plan-header">'
+                f'<span class="dm-plan-fase">{b["fase"]}</span>'
+                f'<span class="dm-plan-dates">{dates_txt}</span>'
+                f'</div>'
+                f'<div class="dm-plan-meta">Volume: {b["volume"]} &nbsp;·&nbsp; Intensiteit: {b["intensiteit"]}</div>'
+                f'<div class="dm-plan-focus">{b["focus"]}</div>'
+                f'{note_html}'
+                f'</div>'
+            )
+        st.markdown(f'<div class="dm-card">{rows_html}</div>', unsafe_allow_html=True)
+        st.markdown('<div style="height:0.75rem"></div>', unsafe_allow_html=True)
+
+
+def analyze_and_store(uploaded_file, athlete_name, today):
+    try:
+        df = core.load_csv_from_fileobj(io.BytesIO(uploaded_file.getvalue()))
+    except ValueError as e:
+        st.error(f'Fout: {e}')
+        return
+    except Exception as e:
+        st.error(
+            f'Kon dit bestand niet verwerken — {type(e).__name__}: {e}\n\n'
+            'Controleer of dit het activities.csv-bestand uit de Strava-export is (niet de volledige zip) '
+            'en niet beschadigd/leeg is. Stuur deze foutmelding door als het probleem blijft — daarmee '
+            'kan het exact gefixt worden.'
+        )
+        return
+    else:
+        summary, daily, acute, chronic, acwr = core.build_summary(df, athlete_name, today)
+        fig = make_chart(daily, acwr, today, athlete_name)
+        st.session_state.setdefault('athletes', {})
+        st.session_state['athletes'][athlete_name] = {'summary': summary, 'fig': fig}
+        st.session_state['active_athlete'] = athlete_name
+
+
+def render_dashboard(athlete_name):
+    data = st.session_state['athletes'][athlete_name]
+    summary, fig = data['summary'], data['fig']
+
+    items_html = ''.join(f'<li>{md_bold_to_html(item)}</li>' for item in kernbevindingen(summary))
+    st.markdown(f"""
+    <div class="dm-card">
+      <div class="dm-card-title">📋 Kernbevindingen — {athlete_name}</div>
+      <ul class="dm-bullet-list">{items_html}</ul>
+    </div>
+    """, unsafe_allow_html=True)
+
+    advies_items = summary.get('advies', [])
+    if advies_items:
+        advies_html = ''.join(
+            f'<div class="dm-advies-item dm-advies-{item["level"]}">'
+            f'<div class="dm-advies-title">{item["title"]}</div>'
+            f'<div class="dm-advies-text">{item["text"]}</div></div>'
+            for item in advies_items
+        )
+        st.markdown(f"""
+        <div class="dm-card">
+          <div class="dm-card-title">🎯 Trainingsadvies — komende weken</div>
+          {advies_html}
+        </div>
+        """, unsafe_allow_html=True)
+        st.caption('AI-gegenereerd advies op basis van trainingsdata (ACWR-stand, -trend en consistentie) — '
+                   'geen diagnose en geen automatische inplanning. De coach combineert dit met eigen inzicht '
+                   '(klachten, context, doelen) en beslist het uiteindelijke programma.')
+
+    st.divider()
+    st.subheader('📊 Activiteitenoverzicht')
+    period_tab_labels = ['Laatste 2 jaar', 'Laatste jaar', 'Laatste 6 maanden', 'Laatste 3 maanden',
+                          'Laatste 4 weken', 'Laatste week']
+    period_tab_keys = ['2j', '1j', '6m', '3m', '4w', '1w']
+    tabs = st.tabs(period_tab_labels)
+    for tab, key in zip(tabs, period_tab_keys):
+        with tab:
+            period = summary['periods'].get(key)
+            if period is None:
+                st.warning('Deze periode ontbreekt in de opgeslagen analyse (waarschijnlijk van vóór een tool-update). '
+                           'Klik links opnieuw op "Analyseer" om deze atleet te vernieuwen.')
+                continue
+            st.caption(period['label'])
+            table = sport_table(period)
+
+            def highlight_total(row):
+                is_total = row['Sport'] == 'TOTAAL'
+                return ['font-weight:700; background-color:#F2E6DE; color:#5B1F2C;' if is_total else '' for _ in row]
+
+            styled = table.style.apply(highlight_total, axis=1).format({
+                'Sessies': '{:.0f}',
+                'Uren': '{:.1f}',
+                'Km': '{:.1f}',
+                'Hoogtemeters': '{:.0f}',
+                'Gem. HS': '{:.0f}',
+                'Trainingslast': '{:.0f}',
+            }, na_rep='–')
+            st.dataframe(styled, hide_index=True, use_container_width=True)
+
+    st.divider()
+    st.subheader('⚖️ Belastbaarheid: A:C ratio')
+    st.caption('Ratio tussen 0,8 en 1,3 geldt doorgaans als "sweet spot." Dit is een signaal, geen geïsoleerde '
+               'voorspeller van overbelasting — combineer altijd met herstelindicatoren en coach-inzicht '
+               '(zie de literatuurstudie, hoofdstuk 3).')
+    st.pyplot(fig, use_container_width=True)
+
+    acwr_df = pd.DataFrame(summary['acwr']['table']).rename(columns={'week_ending': 'Week (t/m)', 'acwr': 'A:C ratio'})
+    acwr_df['A:C ratio'] = pd.to_numeric(acwr_df['A:C ratio'], errors='coerce')
+
+    def zone(v):
+        if pd.isna(v):
+            return '–'
+        if v > 1.3:
+            return 'Piekbelasting'
+        if v < 0.8:
+            return 'Onderbelasting'
+        return 'Sweet spot'
+    acwr_df['Zone'] = acwr_df['A:C ratio'].apply(zone)
+
+    def style_zone(val):
+        colors = {
+            'Sweet spot': 'background-color:#E3F3EA; color:#2f6b4f; font-weight:600;',
+            'Piekbelasting': 'background-color:#FBE7E2; color:#a13a2a; font-weight:600;',
+            'Onderbelasting': 'background-color:#FDF3E0; color:#8a6a1f; font-weight:600;',
+        }
+        return colors.get(val, '')
+
+    styled_acwr = acwr_df.style.map(style_zone, subset=['Zone']).format({'A:C ratio': '{:.1f}'}, na_rep='–')
+    st.dataframe(styled_acwr, hide_index=True, use_container_width=True)
+
+    st.divider()
+    st.subheader('🎯 A-doelen & Jaarplanning')
+    st.caption('Max. 3 A-doelen per jaar. De jaarplanning wordt terugwerkend vanaf elke wedstrijddatum opgebouwd '
+               '(Friel/Olbrecht-periodisering) en houdt rekening met de huidige belastbaarheid hierboven. '
+               'Dit is een voorstel op macro/mesocyclus-niveau — de coach vertaalt dit naar concrete sessies.')
+
+    goals_key = f'a_goals_{athlete_name}'
+    if goals_key not in st.session_state:
+        st.session_state[goals_key] = []
+    goals = st.session_state[goals_key]
+
+    if goals:
+        chips = ''.join(
+            f'<span class="dm-goal-chip">🏁 {g["name"]} — {pd.Timestamp(g["date"]).strftime("%d %b %Y")}</span>'
+            for g in goals
+        )
+        st.markdown(chips, unsafe_allow_html=True)
+
+    with st.expander(f'Doelen beheren ({len(goals)}/3)', expanded=len(goals) == 0):
+        if len(goals) < 3:
+            with st.form(f'add_goal_form_{athlete_name}', clear_on_submit=True):
+                c1, c2, c3 = st.columns([2, 1, 1])
+                with c1:
+                    new_name = st.text_input('Naam wedstrijd/doel', placeholder='bv. Ironman Nice')
+                with c2:
+                    new_date = st.date_input('Datum', value=None, min_value=pd.Timestamp.now().date())
+                with c3:
+                    new_disc = st.selectbox('Discipline', ['Triatlon', 'Lopen', 'Fietsen', 'Zwemmen', 'Andere'])
+                if st.form_submit_button('A-doel toevoegen', use_container_width=True):
+                    if not new_name or not new_date:
+                        st.error('Vul een naam én datum in.')
+                    else:
+                        goals.append({'name': new_name, 'date': pd.Timestamp(new_date), 'discipline': new_disc})
+                        st.session_state[goals_key] = goals
+                        st.rerun()
+        else:
+            st.caption('Maximum van 3 A-doelen bereikt. Verwijder een doel om een ander toe te voegen.')
+
+        for i, g in enumerate(goals):
+            gc1, gc2 = st.columns([4, 1])
+            with gc1:
+                st.markdown(f"**{g['name']}** — {g['discipline']} — {pd.Timestamp(g['date']).strftime('%d %B %Y')}")
+            with gc2:
+                if st.button('Verwijder', key=f'del_goal_{athlete_name}_{i}', use_container_width=True):
+                    goals.pop(i)
+                    st.session_state[goals_key] = goals
+                    st.rerun()
+
+    if goals:
+        today_ref = pd.Timestamp(summary.get('todayIso', pd.Timestamp.now().normalize().isoformat()))
+        plan = core.generate_jaarplanning(today_ref, goals, summary['acwr']['current'])
+        render_jaarplanning(plan)
+    else:
+        st.caption('Nog geen A-doelen ingesteld. Voeg er hierboven toe om een voorgestelde jaarplanning te zien.')
+
+    with st.expander('Methodologie & datakwaliteit'):
+        dq = summary['dataQuality']
+        st.markdown(f"""
+- Databron: Strava-export, {summary['totalSessionsAllTime']} activiteiten ({summary['dateRange']['from']} – {summary['dateRange']['to']}).
+- Trainingslast: {dq['actual']} sessies met geregistreerde waarde, {dq['estimated']} geschat op basis van hartslag × duur, {dq['excluded_no_hr']} uitgesloten wegens ontbrekende hartslagdata.
+- A:C ratio: acute last = som trainingslast laatste 7 dagen; chronische last = gemiddelde wekelijkse trainingslast over de laatste 28 dagen.
+- Dit is een advies-signaal — de coach beslist. Zie de literatuurstudie "Wetenschappelijke fundamenten voor een AI-analyseplatform bij De Musculatuur" voor de volledige evidence-basis.
+        """)
+
+    st.download_button(
+        'Download cijfers (JSON)',
+        data=json.dumps(summary, ensure_ascii=False, indent=2),
+        file_name=f"summary_{athlete_name.replace(' ', '_')}.json",
+        mime='application/json',
+    )
+
+
+def main():
+    inject_brand_css()
+    if not check_password():
+        return
+
+    render_hero('AI Performance Assistent',
+                'Automatische inzichten in trainingslast, belastbaarheid en A:C ratio — per atleet, in seconden.')
+
+    with st.sidebar:
+        render_logo()
+        st.markdown('<div class="dm-sidebar-section">Nieuwe analyse</div>', unsafe_allow_html=True)
+
+        st.markdown('<div class="dm-step">① Naam atleet</div>', unsafe_allow_html=True)
+        athlete_name = st.text_input('Naam atleet', placeholder='bv. Jan Peeters', label_visibility='collapsed')
+
+        st.markdown('<div class="dm-step">② Upload activities.csv</div>', unsafe_allow_html=True)
+        uploaded_file = st.file_uploader('activities.csv', type=['csv'], label_visibility='collapsed')
+        st.caption('Pak de Strava-export (.zip) uit en upload enkel het bestand **activities.csv** '
+                   'daaruit — niet de volledige zip. Dat is het enige bestand dat deze tool nodig heeft.')
+
+        st.markdown('<div class="dm-step">③ Referentiedatum</div>', unsafe_allow_html=True)
+        today_override = st.date_input('Referentiedatum', value=pd.Timestamp.now().normalize().date(),
+                                        label_visibility='collapsed')
+
+        st.markdown('<div style="height:0.6rem"></div>', unsafe_allow_html=True)
+        if st.button('Analyseer', type='primary', disabled=not (athlete_name and uploaded_file), use_container_width=True):
+            with st.spinner('Bezig met analyseren...'):
+                analyze_and_store(uploaded_file, athlete_name, pd.Timestamp(today_override))
+            st.success(f'Analyse van {athlete_name} klaar.')
+
+        athletes = list(st.session_state.get('athletes', {}).keys())
+        if athletes:
+            st.markdown('<hr class="dm-sidebar-divider" />', unsafe_allow_html=True)
+            st.markdown('<div class="dm-sidebar-section">Geanalyseerde atleten</div>', unsafe_allow_html=True)
+            active = st.radio('Bekijk:', athletes, index=athletes.index(st.session_state.get('active_athlete', athletes[0])),
+                               label_visibility='collapsed')
+            st.session_state['active_athlete'] = active
+
+        st.markdown('<hr class="dm-sidebar-divider" />', unsafe_allow_html=True)
+        if st.button('Uitloggen', use_container_width=True):
+            st.session_state['authed'] = False
+            st.rerun()
+
+    active = st.session_state.get('active_athlete')
+    if not active:
+        st.markdown("""
+        <div class="dm-empty-state">
+          <div class="dm-empty-icon">📤</div>
+          <div class="dm-empty-title">Nog geen analyse</div>
+          <div class="dm-empty-desc">Vul links de naam van de atleet in en upload het <strong>activities.csv</strong>-bestand
+          uit de Strava-export. Klik daarna op <strong>Analyseer</strong> om het dashboard te zien.</div>
+        </div>
+        """, unsafe_allow_html=True)
+        return
+    render_dashboard(active)
+
+
+if __name__ == '__main__':
+    main()

@@ -1,0 +1,16 @@
+# De tool accepteert bewust enkel activities.csv (niet de volledige Strava-zip,
+# die door foto's/video's/losse activiteit-bestanden al snel honderden MB's is).
+# Zelfs jarenlange activities.csv-bestanden blijven doorgaans ruim onder 50MB,
+# dus een bescheiden limiet volstaat.
+[server]
+maxUploadSize = 50
+
+# Huisstijl De Musculatuur (crème/perzik + bordeaux + saliegroen).
+# Fijnere details (logo, sidebar, kaarten) worden via custom CSS in app.py gezet —
+# dit theme-blok bepaalt de basiskleuren van Streamlit's eigen widgets.
+[theme]
+primaryColor = "#6FA98A"
+backgroundColor = "#FBF6F2"
+secondaryBackgroundColor = "#F2E6DE"
+textColor = "#3B2820"
+font = "sans serif"
