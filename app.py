@@ -228,6 +228,40 @@ section[data-testid="stSidebar"] .dm-logo-text .name {{ color: #FFFFFF !importan
     border: 1px solid #E3D5C8; border-radius: 999px; padding: 0.4rem 0.9rem; margin: 0 0.4rem 0.4rem 0;
     font-family: 'Poppins', sans-serif; font-size: 0.85rem; color: {DM_MAROON};
 }}
+
+/* ---- Tool-tegels op de welkomstpagina ---- */
+.dm-tool-card {{
+    background: #FFFFFF; border-radius: 20px; padding: 1.6rem 1.4rem 1.3rem 1.4rem;
+    box-shadow: 0 3px 14px rgba(59,40,32,0.09); border-top: 5px solid {DM_GREEN};
+    height: 100%; display: flex; flex-direction: column;
+}}
+.dm-tool-card.soon {{ border-top-color: #C9BBA8; background: #FCFAF8; }}
+.dm-tool-icon {{ font-size: 2rem; line-height: 1; margin-bottom: 0.7rem; }}
+.dm-tool-title {{ font-family: 'Playfair Display', serif; color: {DM_MAROON}; font-size: 1.2rem;
+    font-weight: 700; margin-bottom: 0.4rem; }}
+.dm-tool-desc {{ font-family: 'Poppins', sans-serif; color: {DM_MUTED}; font-size: 0.88rem;
+    line-height: 1.55; flex-grow: 1; }}
+.dm-tool-badge {{
+    display: inline-block; margin-top: 0.8rem; padding: 0.2rem 0.7rem; border-radius: 999px;
+    font-family: 'Poppins', sans-serif; font-size: 0.7rem; font-weight: 700; letter-spacing: 0.5px;
+    text-transform: uppercase; background: #F0EAE3; color: #8a7a68;
+}}
+
+/* Compacte belastbaarheid-uitkomst (basis onder de jaarplanning) */
+.dm-bel-readout {{
+    background: #FFFFFF; border-radius: 16px; padding: 1.1rem 1.4rem;
+    box-shadow: 0 2px 10px rgba(59,40,32,0.08); border-left: 4px solid {DM_GREEN};
+    display: flex; align-items: center; gap: 1.5rem; flex-wrap: wrap;
+}}
+.dm-bel-readout.warn {{ border-left-color: #8a6a1f; }}
+.dm-bel-readout.alert {{ border-left-color: #a13a2a; }}
+.dm-bel-readout.none {{ border-left-color: {DM_MUTED}; }}
+.dm-bel-value {{ font-family: 'Playfair Display', serif; font-size: 2.1rem; font-weight: 700;
+    color: {DM_MAROON}; line-height: 1; }}
+.dm-bel-label {{ font-family: 'Poppins', sans-serif; font-size: 0.7rem; letter-spacing: 1.5px;
+    text-transform: uppercase; color: {DM_MUTED}; font-weight: 700; margin-bottom: 0.2rem; }}
+.dm-bel-status {{ font-family: 'Poppins', sans-serif; font-size: 0.95rem; font-weight: 600; color: #45403c; }}
+.dm-bel-meta {{ font-family: 'Poppins', sans-serif; font-size: 0.8rem; color: {DM_MUTED}; margin-top: 0.15rem; }}
 </style>
 """
 
@@ -281,6 +315,91 @@ def render_hero(subtitle, desc):
 
 def md_bold_to_html(text):
     return re.sub(r'\*\*(.+?)\*\*', r'<strong>\1</strong>', text)
+
+
+# ---------------------------------------------------------------------------
+# Navigatie: welkomstpagina met tool-tegels, daarachter de losse tools.
+# Bewust eigen routing via session_state i.p.v. Streamlit's multipage-mechanisme:
+# dat laatste zet z'n eigen paginanavigatie in de sidebar, wat botst met de
+# huisstijl-sidebar hieronder.
+# ---------------------------------------------------------------------------
+PAGE_HOME = 'home'
+PAGE_BELASTBAARHEID = 'belastbaarheid'
+PAGE_JAARPLANNING = 'jaarplanning'
+PAGE_VOEDING = 'voeding'
+PAGE_LACTAAT = 'lactaat'
+
+TOOLS = [
+    {'key': PAGE_BELASTBAARHEID, 'icon': '📊', 'titel': 'Belastbaarheidsanalyse atleet',
+     'desc': 'Volledige analyse van trainingslast en A:C ratio uit een Strava-export: '
+             'kernbevindingen, blinde vlekken, trend en trainingsadvies.', 'klaar': True},
+    {'key': PAGE_JAARPLANNING, 'icon': '🎯', 'titel': 'Jaarplanning',
+     'desc': 'Macro- en mesocyclus-voorstel per A-doel volgens Friel en Olbrecht, '
+             'terugwerkend vanaf de wedstrijddatum en afgestemd op de huidige belastbaarheid.',
+     'klaar': True},
+    {'key': PAGE_VOEDING, 'icon': '🥗', 'titel': 'Voedingsplan',
+     'desc': 'Voedingsadvies afgestemd op trainingsbelasting en wedstrijdplanning.', 'klaar': False},
+    {'key': PAGE_LACTAAT, 'icon': '🧪', 'titel': 'Lactaattest',
+     'desc': 'Verwerking van lactaatmetingen naar drempels en trainingszones.', 'klaar': False},
+]
+
+
+def goto(page):
+    st.session_state['page'] = page
+    st.rerun()
+
+
+def current_page():
+    return st.session_state.get('page', PAGE_HOME)
+
+
+def render_home():
+    st.markdown('<div class="dm-page-title">Kies een tool</div>', unsafe_allow_html=True)
+    st.caption('Elke tool werkt op zichzelf — je hoeft ze niet in volgorde te gebruiken.')
+    st.markdown('<div style="height:0.8rem"></div>', unsafe_allow_html=True)
+
+    for row_start in range(0, len(TOOLS), 2):
+        cols = st.columns(2, gap='medium')
+        for col, tool in zip(cols, TOOLS[row_start:row_start + 2]):
+            with col:
+                badge = '' if tool['klaar'] else '<div class="dm-tool-badge">In ontwikkeling</div>'
+                st.markdown(f"""
+                <div class="dm-tool-card{'' if tool['klaar'] else ' soon'}">
+                  <div class="dm-tool-icon">{tool['icon']}</div>
+                  <div class="dm-tool-title">{tool['titel']}</div>
+                  <div class="dm-tool-desc">{tool['desc']}</div>
+                  {badge}
+                </div>
+                """, unsafe_allow_html=True)
+                if st.button('Openen' if tool['klaar'] else 'Binnenkort beschikbaar',
+                             key=f"open_{tool['key']}", disabled=not tool['klaar'],
+                             use_container_width=True):
+                    goto(tool['key'])
+        st.markdown('<div style="height:1rem"></div>', unsafe_allow_html=True)
+
+
+def render_placeholder_page(icon, titel, desc):
+    st.markdown(f'<div class="dm-page-title">{icon} {titel}</div>', unsafe_allow_html=True)
+    st.markdown(f"""
+    <div class="dm-empty-state">
+      <div class="dm-empty-icon">🚧</div>
+      <div class="dm-empty-title">Deze tool wordt nog gebouwd</div>
+      <div class="dm-empty-desc">{desc}</div>
+    </div>
+    """, unsafe_allow_html=True)
+
+
+def belastbaarheid_status(current):
+    """Eén regel status + kleurcode bij een A:C ratio — gedeeld door de jaarplanning-readout."""
+    if current is None:
+        return 'none', 'Geen belastbaarheidsdata'
+    if current > 1.5:
+        return 'alert', 'Piekbelasting — ruim boven de sweet spot'
+    if current > 1.3:
+        return 'warn', 'Boven de sweet spot'
+    if current < 0.8:
+        return 'warn', 'Onder de sweet spot'
+    return 'ok', 'In de sweet spot (0,8-1,3)'
 
 
 def get_app_password():
@@ -542,59 +661,11 @@ def render_dashboard(athlete_name):
     st.dataframe(styled_acwr, hide_index=True, use_container_width=True)
 
     st.divider()
-    st.subheader('🎯 A-doelen & Jaarplanning')
-    st.caption('Max. 3 A-doelen per jaar. De jaarplanning wordt terugwerkend vanaf elke wedstrijddatum opgebouwd '
-               '(Friel/Olbrecht-periodisering) en houdt rekening met de huidige belastbaarheid hierboven. '
-               'Dit is een voorstel op macro/mesocyclus-niveau — de coach vertaalt dit naar concrete sessies.')
-
-    goals_key = f'a_goals_{athlete_name}'
-    if goals_key not in st.session_state:
-        st.session_state[goals_key] = []
-    goals = st.session_state[goals_key]
-
-    if goals:
-        chips = ''.join(
-            f'<span class="dm-goal-chip">🏁 {g["name"]} — {pd.Timestamp(g["date"]).strftime("%d %b %Y")}</span>'
-            for g in goals
-        )
-        st.markdown(chips, unsafe_allow_html=True)
-
-    with st.expander(f'Doelen beheren ({len(goals)}/3)', expanded=len(goals) == 0):
-        if len(goals) < 3:
-            with st.form(f'add_goal_form_{athlete_name}', clear_on_submit=True):
-                c1, c2, c3 = st.columns([2, 1, 1])
-                with c1:
-                    new_name = st.text_input('Naam wedstrijd/doel', placeholder='bv. Ironman Nice')
-                with c2:
-                    new_date = st.date_input('Datum', value=None, min_value=pd.Timestamp.now().date())
-                with c3:
-                    new_disc = st.selectbox('Discipline', ['Triatlon', 'Lopen', 'Fietsen', 'Zwemmen', 'Andere'])
-                if st.form_submit_button('A-doel toevoegen', use_container_width=True):
-                    if not new_name or not new_date:
-                        st.error('Vul een naam én datum in.')
-                    else:
-                        goals.append({'name': new_name, 'date': pd.Timestamp(new_date), 'discipline': new_disc})
-                        st.session_state[goals_key] = goals
-                        st.rerun()
-        else:
-            st.caption('Maximum van 3 A-doelen bereikt. Verwijder een doel om een ander toe te voegen.')
-
-        for i, g in enumerate(goals):
-            gc1, gc2 = st.columns([4, 1])
-            with gc1:
-                st.markdown(f"**{g['name']}** — {g['discipline']} — {pd.Timestamp(g['date']).strftime('%d %B %Y')}")
-            with gc2:
-                if st.button('Verwijder', key=f'del_goal_{athlete_name}_{i}', use_container_width=True):
-                    goals.pop(i)
-                    st.session_state[goals_key] = goals
-                    st.rerun()
-
-    if goals:
-        today_ref = pd.Timestamp(summary.get('todayIso', pd.Timestamp.now().normalize().isoformat()))
-        plan = core.generate_jaarplanning(today_ref, goals, summary['acwr']['current'])
-        render_jaarplanning(plan)
-    else:
-        st.caption('Nog geen A-doelen ingesteld. Voeg er hierboven toe om een voorgestelde jaarplanning te zien.')
+    st.info(f'Wil je hieruit een jaarplanning opbouwen? Open de **Jaarplanning**-tool — die neemt de '
+            f'belastbaarheid van {athlete_name} automatisch mee als startpunt.', icon='🎯')
+    if st.button('Naar Jaarplanning', key='naar_jaarplanning', use_container_width=True):
+        st.session_state['jp_athlete'] = athlete_name
+        goto(PAGE_JAARPLANNING)
 
     with st.expander('Methodologie & datakwaliteit'):
         dq = summary['dataQuality']
@@ -620,49 +691,210 @@ def render_dashboard(athlete_name):
     )
 
 
-def main():
-    inject_brand_css()
-    if not check_password():
+# ---------------------------------------------------------------------------
+# Jaarplanning-tool (staat op zichzelf, met eigen lichte belastbaarheidsbepaling)
+# ---------------------------------------------------------------------------
+
+def _belastbaarheid_voor(athlete_name):
+    """Haalt de belastbaarheid van deze atleet op. Voorkeur voor een volledige analyse als die
+    in deze sessie al gemaakt is (Belastbaarheidsanalyse-tool); anders de lichte berekening die
+    op deze pagina zelf gebeurde. Zo hoeft een coach dezelfde export nooit twee keer te uploaden."""
+    full = st.session_state.get('athletes', {}).get(athlete_name)
+    if full:
+        acwr = full['summary']['acwr']
+        return {
+            'current': acwr['current'],
+            'sessies': full['summary']['totalSessionsAllTime'],
+            'dateRange': full['summary']['dateRange'],
+            'todayIso': full['summary'].get('todayIso'),
+            'bron': 'volledige analyse',
+        }
+    light = st.session_state.get('jp_belastbaarheid', {}).get(athlete_name)
+    if light:
+        return {**light, 'bron': 'activities.csv'}
+    return None
+
+
+def render_belastbaarheid_readout(bel):
+    """Compacte weergave van enkel de huidige belastbaarheid — bewust geen volledige analyse."""
+    if bel is None:
+        st.markdown("""
+        <div class="dm-bel-readout none">
+          <div>
+            <div class="dm-bel-label">Huidige belastbaarheid</div>
+            <div class="dm-bel-status">Nog niet bepaald</div>
+            <div class="dm-bel-meta">De jaarplanning start zonder aanpassing aan de actuele belasting.</div>
+          </div>
+        </div>
+        """, unsafe_allow_html=True)
         return
 
-    render_hero('AI Performance Assistent',
-                'Automatische inzichten in trainingslast, belastbaarheid en A:C ratio — per atleet, in seconden.')
+    level, status = belastbaarheid_status(bel['current'])
+    css = {'ok': '', 'warn': ' warn', 'alert': ' alert', 'none': ' none'}[level]
+    waarde = fmt(bel['current'], 1) if bel['current'] is not None else '–'
+    dr = bel.get('dateRange') or {}
+    meta = (f"{bel.get('sessies', '–')} activiteiten ({dr.get('from', '?')} – {dr.get('to', '?')}) "
+            f"· bron: {bel.get('bron', '–')}")
+    st.markdown(f"""
+    <div class="dm-bel-readout{css}">
+      <div>
+        <div class="dm-bel-label">A:C ratio</div>
+        <div class="dm-bel-value">{waarde}</div>
+      </div>
+      <div>
+        <div class="dm-bel-status">{status}</div>
+        <div class="dm-bel-meta">{meta}</div>
+        <div class="dm-bel-meta">Dit cijfer bepaalt het startpunt van de eerste cyclus hieronder.</div>
+      </div>
+    </div>
+    """, unsafe_allow_html=True)
 
-    with st.sidebar:
-        render_logo()
-        st.markdown('<div class="dm-sidebar-section">Nieuwe analyse</div>', unsafe_allow_html=True)
 
-        st.markdown('<div class="dm-step">① Naam atleet</div>', unsafe_allow_html=True)
-        athlete_name = st.text_input('Naam atleet', placeholder='bv. Jan Peeters', label_visibility='collapsed')
+def render_jaarplanning_page():
+    st.markdown('<div class="dm-page-title">🎯 Jaarplanning</div>', unsafe_allow_html=True)
+    st.caption('Macro/mesocyclus-voorstel per A-doel volgens Friel en Olbrecht, terugwerkend gepland '
+               'vanaf elke wedstrijddatum. De coach vertaalt dit naar concrete sessies.')
 
-        st.markdown('<div class="dm-step">② Upload activities.csv</div>', unsafe_allow_html=True)
-        uploaded_file = st.file_uploader('activities.csv', type=['csv'], label_visibility='collapsed')
-        st.caption('Pak de Strava-export (.zip) uit en upload enkel het bestand **activities.csv** '
-                   'daaruit — niet de volledige zip. Dat is het enige bestand dat deze tool nodig heeft.')
+    # --- Stap 1: belastbaarheid als cijfermatige basis -----------------------
+    st.markdown('##### ① Belastbaarheid als basis')
+    st.caption('Upload de activities.csv om de huidige A:C ratio te berekenen. Enkel dat cijfer wordt '
+               'hier gebruikt — voor de volledige analyse (blinde vlekken, trend, advies) gebruik je de '
+               'Belastbaarheidsanalyse-tool. Zonder upload werkt de planning ook, maar dan zonder '
+               'aanpassing aan de actuele belasting.')
 
-        st.markdown('<div class="dm-step">③ Referentiedatum</div>', unsafe_allow_html=True)
-        today_override = st.date_input('Referentiedatum', value=pd.Timestamp.now().normalize().date(),
+    known = list(st.session_state.get('athletes', {}).keys())
+    c1, c2 = st.columns([2, 1])
+    with c1:
+        athlete_name = st.text_input('Naam atleet', value=st.session_state.get('jp_athlete', ''),
+                                      placeholder='bv. Jan Peeters', key='jp_athlete_input')
+    with c2:
+        ref_date = st.date_input('Referentiedatum', value=pd.Timestamp.now().normalize().date(),
+                                  key='jp_refdate')
+    st.session_state['jp_athlete'] = athlete_name
+
+    if athlete_name and athlete_name in known:
+        st.success(f'{athlete_name} is in deze sessie al volledig geanalyseerd — die belastbaarheid '
+                   'wordt automatisch gebruikt. Een upload is hier niet nodig.', icon='✅')
+    else:
+        up_col, btn_col = st.columns([3, 1])
+        with up_col:
+            jp_file = st.file_uploader('activities.csv', type=['csv'], key='jp_upload',
                                         label_visibility='collapsed')
+        with btn_col:
+            bereken = st.button('Berekenen', type='primary', key='jp_bereken',
+                                 disabled=not (athlete_name and jp_file), use_container_width=True)
+        if bereken:
+            try:
+                df = core.load_csv_from_fileobj(io.BytesIO(jp_file.getvalue()))
+                bel = core.compute_belastbaarheid(df, pd.Timestamp(ref_date))
+            except ValueError as e:
+                st.error(f'Fout: {e}')
+            except Exception as e:
+                st.error(f'Kon dit bestand niet verwerken — {type(e).__name__}: {e}\n\n'
+                         'Controleer of dit het activities.csv-bestand uit de Strava-export is.')
+            else:
+                st.session_state.setdefault('jp_belastbaarheid', {})[athlete_name] = bel
+                st.rerun()
 
-        st.markdown('<div style="height:0.6rem"></div>', unsafe_allow_html=True)
-        if st.button('Analyseer', type='primary', disabled=not (athlete_name and uploaded_file), use_container_width=True):
-            with st.spinner('Bezig met analyseren...'):
-                analyze_and_store(uploaded_file, athlete_name, pd.Timestamp(today_override))
-            st.success(f'Analyse van {athlete_name} klaar.')
+    bel = _belastbaarheid_voor(athlete_name) if athlete_name else None
+    render_belastbaarheid_readout(bel)
 
-        athletes = list(st.session_state.get('athletes', {}).keys())
-        if athletes:
-            st.markdown('<hr class="dm-sidebar-divider" />', unsafe_allow_html=True)
-            st.markdown('<div class="dm-sidebar-section">Geanalyseerde atleten</div>', unsafe_allow_html=True)
-            active = st.radio('Bekijk:', athletes, index=athletes.index(st.session_state.get('active_athlete', athletes[0])),
-                               label_visibility='collapsed')
-            st.session_state['active_athlete'] = active
+    if not athlete_name:
+        st.markdown('<div style="height:0.5rem"></div>', unsafe_allow_html=True)
+        st.caption('Vul hierboven een naam in om A-doelen toe te voegen.')
+        return
 
+    # --- Stap 2: A-doelen ---------------------------------------------------
+    st.divider()
+    st.markdown('##### ② A-doelen')
+    st.caption('Max. 3 A-doelen per jaar.')
+
+    goals_key = f'a_goals_{athlete_name}'
+    if goals_key not in st.session_state:
+        st.session_state[goals_key] = []
+    goals = st.session_state[goals_key]
+
+    if goals:
+        chips = ''.join(
+            f'<span class="dm-goal-chip">🏁 {g["name"]} — {pd.Timestamp(g["date"]).strftime("%d %b %Y")}</span>'
+            for g in goals
+        )
+        st.markdown(chips, unsafe_allow_html=True)
+
+    with st.expander(f'Doelen beheren ({len(goals)}/3)', expanded=len(goals) == 0):
+        if len(goals) < 3:
+            with st.form(f'add_goal_form_{athlete_name}', clear_on_submit=True):
+                g1, g2, g3 = st.columns([2, 1, 1])
+                with g1:
+                    new_name = st.text_input('Naam wedstrijd/doel', placeholder='bv. Ironman Nice')
+                with g2:
+                    new_date = st.date_input('Datum', value=None, min_value=pd.Timestamp.now().date())
+                with g3:
+                    new_disc = st.selectbox('Discipline', ['Triatlon', 'Lopen', 'Fietsen', 'Zwemmen', 'Andere'])
+                if st.form_submit_button('A-doel toevoegen', use_container_width=True):
+                    if not new_name or not new_date:
+                        st.error('Vul een naam én datum in.')
+                    else:
+                        goals.append({'name': new_name, 'date': pd.Timestamp(new_date), 'discipline': new_disc})
+                        st.session_state[goals_key] = goals
+                        st.rerun()
+        else:
+            st.caption('Maximum van 3 A-doelen bereikt. Verwijder een doel om een ander toe te voegen.')
+
+        for i, g in enumerate(goals):
+            gc1, gc2 = st.columns([4, 1])
+            with gc1:
+                st.markdown(f"**{g['name']}** — {g['discipline']} — {pd.Timestamp(g['date']).strftime('%d %B %Y')}")
+            with gc2:
+                if st.button('Verwijder', key=f'del_goal_{athlete_name}_{i}', use_container_width=True):
+                    goals.pop(i)
+                    st.session_state[goals_key] = goals
+                    st.rerun()
+
+    # --- Stap 3: het plan ---------------------------------------------------
+    if goals:
+        st.divider()
+        st.markdown('##### ③ Voorgestelde planning')
+        today_ref = pd.Timestamp(ref_date)
+        acwr_current = bel['current'] if bel else None
+        plan = core.generate_jaarplanning(today_ref, goals, acwr_current)
+        render_jaarplanning(plan)
+    else:
+        st.caption('Nog geen A-doelen ingesteld. Voeg er hierboven toe om een voorgestelde jaarplanning te zien.')
+
+
+def render_analyse_sidebar():
+    """Upload-flow: hoort enkel bij de Belastbaarheidsanalyse-tool."""
+    st.markdown('<div class="dm-sidebar-section">Nieuwe analyse</div>', unsafe_allow_html=True)
+
+    st.markdown('<div class="dm-step">① Naam atleet</div>', unsafe_allow_html=True)
+    athlete_name = st.text_input('Naam atleet', placeholder='bv. Jan Peeters', label_visibility='collapsed')
+
+    st.markdown('<div class="dm-step">② Upload activities.csv</div>', unsafe_allow_html=True)
+    uploaded_file = st.file_uploader('activities.csv', type=['csv'], label_visibility='collapsed')
+    st.caption('Pak de Strava-export (.zip) uit en upload enkel het bestand **activities.csv** '
+               'daaruit — niet de volledige zip. Dat is het enige bestand dat deze tool nodig heeft.')
+
+    st.markdown('<div class="dm-step">③ Referentiedatum</div>', unsafe_allow_html=True)
+    today_override = st.date_input('Referentiedatum', value=pd.Timestamp.now().normalize().date(),
+                                    label_visibility='collapsed')
+
+    st.markdown('<div style="height:0.6rem"></div>', unsafe_allow_html=True)
+    if st.button('Analyseer', type='primary', disabled=not (athlete_name and uploaded_file), use_container_width=True):
+        with st.spinner('Bezig met analyseren...'):
+            analyze_and_store(uploaded_file, athlete_name, pd.Timestamp(today_override))
+        st.success(f'Analyse van {athlete_name} klaar.')
+
+    athletes = list(st.session_state.get('athletes', {}).keys())
+    if athletes:
         st.markdown('<hr class="dm-sidebar-divider" />', unsafe_allow_html=True)
-        if st.button('Uitloggen', use_container_width=True):
-            st.session_state['authed'] = False
-            st.rerun()
+        st.markdown('<div class="dm-sidebar-section">Geanalyseerde atleten</div>', unsafe_allow_html=True)
+        active = st.radio('Bekijk:', athletes, index=athletes.index(st.session_state.get('active_athlete', athletes[0])),
+                           label_visibility='collapsed')
+        st.session_state['active_athlete'] = active
 
+
+def render_belastbaarheid_page():
     active = st.session_state.get('active_athlete')
     if not active:
         st.markdown("""
@@ -675,6 +907,54 @@ def main():
         """, unsafe_allow_html=True)
         return
     render_dashboard(active)
+
+
+def main():
+    inject_brand_css()
+    if not check_password():
+        return
+
+    page = current_page()
+
+    if page == PAGE_HOME:
+        render_hero('AI Performance Assistent',
+                    'De tools van De Musculatuur, op één plek — per atleet, in seconden.')
+
+    with st.sidebar:
+        render_logo()
+        # Enkel de Belastbaarheidsanalyse heeft eigen sidebar-bediening; op de andere
+        # pagina's zou een extra scheidingslijn een leeg blok afbakenen.
+        heeft_eigen_sidebar = page == PAGE_BELASTBAARHEID
+        if page != PAGE_HOME:
+            if st.button('← Alle tools', key='terug_home', use_container_width=True):
+                goto(PAGE_HOME)
+            if heeft_eigen_sidebar:
+                st.markdown('<hr class="dm-sidebar-divider" />', unsafe_allow_html=True)
+
+        if heeft_eigen_sidebar:
+            render_analyse_sidebar()
+        elif page == PAGE_HOME:
+            st.caption('Kies rechts een tool om te starten.')
+
+        st.markdown('<hr class="dm-sidebar-divider" />', unsafe_allow_html=True)
+        if st.button('Uitloggen', use_container_width=True):
+            st.session_state['authed'] = False
+            st.rerun()
+
+    if page == PAGE_BELASTBAARHEID:
+        render_belastbaarheid_page()
+    elif page == PAGE_JAARPLANNING:
+        render_jaarplanning_page()
+    elif page == PAGE_VOEDING:
+        render_placeholder_page('🥗', 'Voedingsplan',
+                                 'Voedingsadvies afgestemd op trainingsbelasting en wedstrijdplanning. '
+                                 'Deze tool bouwen we in een volgende stap.')
+    elif page == PAGE_LACTAAT:
+        render_placeholder_page('🧪', 'Lactaattest',
+                                 'Verwerking van lactaatmetingen naar drempels en trainingszones. '
+                                 'Deze tool bouwen we in een volgende stap.')
+    else:
+        render_home()
 
 
 if __name__ == '__main__':

@@ -320,12 +320,10 @@ def generate_advies(acwr_table, current, weeks_green, weeks_high, weeks_low, wee
     return items
 
 
-def build_summary(df: pd.DataFrame, athlete: str, today: pd.Timestamp) -> dict:
-    """Bouwt het volledige summary-dict (zelfde vorm als summary.json van de CLI-tool)."""
-    df = estimate_load(df)
-    daily, acute, chronic, acwr = compute_acwr(df, today)
-    current_acwr = float(acwr.iloc[-1]) if not np.isnan(acwr.iloc[-1]) else None
-
+def _acwr_overview(acwr: pd.Series, today: pd.Timestamp):
+    """Bouwt de 16-weken ACWR-tabel en telt hoe die weken verdeeld zijn over de zones.
+    Gedeeld door build_summary (volledige analyse) en compute_belastbaarheid (lichte versie),
+    zodat beide gegarandeerd dezelfde cijfers geven."""
     weekly_dates = pd.date_range(end=today, periods=16, freq='W')
     acwr_table = []
     for d in weekly_dates:
@@ -335,6 +333,40 @@ def build_summary(df: pd.DataFrame, athlete: str, today: pd.Timestamp) -> dict:
     weeks_green = sum(1 for v in valid_vals if 0.8 <= v <= 1.3)
     weeks_high = sum(1 for v in valid_vals if v > 1.3)
     weeks_low = sum(1 for v in valid_vals if v < 0.8)
+    return acwr_table, weeks_green, weeks_high, weeks_low, len(valid_vals)
+
+
+def compute_belastbaarheid(df: pd.DataFrame, today: pd.Timestamp) -> dict:
+    """Lichte berekening: enkel de huidige belastbaarheid (A:C ratio) uit een activities.csv.
+
+    Bewust géén periode-overzichten, blinde vlekken, grafiek of trainingsadvies — dit is
+    bedoeld als cijfermatige basis onder de jaarplanning, waar enkel de actuele belasting
+    telt om het startpunt van de eerste cyclus te bepalen. Wie de volledige analyse wil,
+    gebruikt build_summary (de Belastbaarheidsanalyse-tool)."""
+    df = estimate_load(df)
+    _daily, acute, chronic, acwr = compute_acwr(df, today)
+    current = float(acwr.iloc[-1]) if not np.isnan(acwr.iloc[-1]) else None
+    _table, weeks_green, weeks_high, weeks_low, weeks_total = _acwr_overview(acwr, today)
+    return {
+        'current': None if current is None else round(current, 1),
+        'acute7d': round(float(acute.iloc[-1])),
+        'chronic28d_weekly_avg': round(float(chronic.iloc[-1])),
+        'weeks_green': weeks_green, 'weeks_high': weeks_high, 'weeks_low': weeks_low,
+        'weeks_total': weeks_total,
+        'sessies': int(len(df)),
+        'dateRange': {'from': df['date'].min().strftime('%d %b %Y'), 'to': df['date'].max().strftime('%d %b %Y')},
+        'todayIso': today.strftime('%Y-%m-%d'),
+    }
+
+
+def build_summary(df: pd.DataFrame, athlete: str, today: pd.Timestamp) -> dict:
+    """Bouwt het volledige summary-dict (zelfde vorm als summary.json van de CLI-tool)."""
+    df = estimate_load(df)
+    daily, acute, chronic, acwr = compute_acwr(df, today)
+    current_acwr = float(acwr.iloc[-1]) if not np.isnan(acwr.iloc[-1]) else None
+
+    acwr_table, weeks_green, weeks_high, weeks_low, n_valid = _acwr_overview(acwr, today)
+    valid_vals = [w['acwr'] for w in acwr_table if w['acwr'] is not None]
 
     n_actual = int((df['load_source'] == 'actual').sum())
     n_estimated = int((df['load_source'] == 'estimated').sum())
