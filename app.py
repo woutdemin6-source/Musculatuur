@@ -598,9 +598,16 @@ def render_dashboard(athlete_name):
 
     with st.expander('Methodologie & datakwaliteit'):
         dq = summary['dataQuality']
+        no_calib = dq.get('excluded_no_calibration', 0)
+        no_calib_line = (
+            f"\n- ⚠️ {no_calib} sessies hebben wél hartslag- en duurdata, maar konden niet geschat worden: "
+            "deze atleet heeft nergens een sessie met Strava's eigen 'Trainingsbelasting', waardoor er geen "
+            "ijkpunt is om hartslag naar trainingslast om te rekenen. De A:C ratio is hierdoor mogelijk "
+            "onvolledig of ontbreekt." if no_calib > 0 else ''
+        )
         st.markdown(f"""
 - Databron: Strava-export, {summary['totalSessionsAllTime']} activiteiten ({summary['dateRange']['from']} – {summary['dateRange']['to']}).
-- Trainingslast: {dq['actual']} sessies met geregistreerde waarde, {dq['estimated']} geschat op basis van hartslag × duur, {dq['excluded_no_hr']} uitgesloten wegens ontbrekende hartslagdata.
+- Trainingslast: {dq['actual']} sessies met geregistreerde waarde, {dq['estimated']} geschat op basis van hartslag × duur, {dq['excluded_no_hr']} uitgesloten wegens ontbrekende hartslagdata.{no_calib_line}
 - A:C ratio: acute last = som trainingslast laatste 7 dagen; chronische last = gemiddelde wekelijkse trainingslast over de laatste 28 dagen.
 - Dit is een advies-signaal — de coach beslist. Zie de literatuurstudie "Wetenschappelijke fundamenten voor een AI-analyseplatform bij De Musculatuur" voor de volledige evidence-basis.
         """)

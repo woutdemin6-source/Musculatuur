@@ -173,9 +173,16 @@ def estimate_load(df: pd.DataFrame) -> pd.DataFrame:
     def _est(row):
         if pd.notna(row['Trainingsbelasting']):
             return row['Trainingsbelasting'], 'actual'
-        if pd.notna(row['Gemiddelde hartslag']) and pd.notna(row['Beweegtijd']) and row['Beweegtijd'] > 0 and blended is not None:
+        has_hr_duration = pd.notna(row['Gemiddelde hartslag']) and pd.notna(row['Beweegtijd']) and row['Beweegtijd'] > 0
+        if has_hr_duration and blended is not None:
             r = ratios.get(row['Activiteitstype'], blended)
             return r * row['Gemiddelde hartslag'] * row['Beweegtijd'] / 60.0, 'estimated'
+        # Onderscheid: ontbrekende hartslag/duur (nooit te schatten) versus wél hartslag/duur maar
+        # geen enkele sessie met Trainingsbelasting om een ijkpunt uit af te leiden (deze atleet
+        # heeft dan nergens een kalibratie-ratio) — anders wordt dit laatste ten onrechte als
+        # "hartslagdata ontbreekt" gerapporteerd terwijl de echte oorzaak elders ligt.
+        if has_hr_duration:
+            return 0.0, 'no_calibration'
         return 0.0, 'missing'
 
     res = df.apply(_est, axis=1)
@@ -191,7 +198,16 @@ def compute_acwr(df: pd.DataFrame, today: pd.Timestamp):
     daily = daily.reindex(full_range, fill_value=0.0)
     acute = daily.rolling(7, min_periods=1).sum()
     chronic = daily.rolling(28, min_periods=1).sum() / 4.0
-    acwr = acute / chronic.replace(0, np.nan)
+    # De ratio zelf wordt berekend via twee dag-gemiddeldes (i.p.v. rechtstreeks acute/chronic),
+    # zodat ze ook correct is zolang het 7- of 28-dagen venster nog niet volledig gevuld is (bv. de
+    # eerste weken van een nieuwe atleet) — anders wordt een gedeeltelijke som toch afgezet tegen
+    # een volledig 4-weken-gemiddelde, wat de ratio kunstmatig laat afwijken van 1,0 bij een
+    # gelijkmatige belasting. Zodra beide vensters vol zijn is dit wiskundig identiek aan de
+    # klassieke acute/(chronic/4)-formule (de 'acute' en 'chronic' hierboven blijven ongewijzigd
+    # voor rapportage, bv. acute7d/chronic28d_weekly_avg in de JSON-export).
+    acute_avg = daily.rolling(7, min_periods=1).mean()
+    chronic_avg = daily.rolling(28, min_periods=1).mean()
+    acwr = acute_avg / chronic_avg.replace(0, np.nan)
     return daily, acute, chronic, acwr
 
 
@@ -323,6 +339,7 @@ def build_summary(df: pd.DataFrame, athlete: str, today: pd.Timestamp) -> dict:
     n_actual = int((df['load_source'] == 'actual').sum())
     n_estimated = int((df['load_source'] == 'estimated').sum())
     n_missing = int((df['load_source'] == 'missing').sum())
+    n_no_calibration = int((df['load_source'] == 'no_calibration').sum())
 
     gaps = detect_gaps(df, today)
     advies = generate_advies(acwr_table, current_acwr, weeks_green, weeks_high, weeks_low, len(valid_vals), gaps)
@@ -351,7 +368,8 @@ def build_summary(df: pd.DataFrame, athlete: str, today: pd.Timestamp) -> dict:
         },
         'gaps': gaps,
         'advies': advies,
-        'dataQuality': {'actual': n_actual, 'estimated': n_estimated, 'excluded_no_hr': n_missing},
+        'dataQuality': {'actual': n_actual, 'estimated': n_estimated, 'excluded_no_hr': n_missing,
+                         'excluded_no_calibration': n_no_calibration},
     }
     return summary, daily, acute, chronic, acwr
 
@@ -557,7 +575,11 @@ def _plan_segment(start, race_monday, is_first_segment, startaanpassing, goal_na
     opbouw_weeks = 0
     if remaining >= 2:
         opbouw_weeks = min(max(1, round(remaining * 0.35)), remaining)
-    if extra_basis and opbouw_weeks > 1:
+    # Alleen als er ook echt een week van Opbouw naar Basis verschuift, klopt de stabilisatie-notitie
+    # verderop nog met het gegenereerde schema — bij een kort blok (opbouw_weeks <= 1) gebeurt die
+    # verschuiving niet, en mag de notitie dan ook niet getoond worden.
+    basis_extended = bool(extra_basis and opbouw_weeks > 1)
+    if basis_extended:
         # verschuif 1 week van Opbouw naar Basis i.p.v. het totaal aantal weken op te rekken
         # (de wedstrijddatum/taper ligt vast) — de extra basisweek komt dus uit het opbouwblok.
         opbouw_weeks -= 1
@@ -588,7 +610,7 @@ def _plan_segment(start, race_monday, is_first_segment, startaanpassing, goal_na
         note = None
         if key == 'transitie' and stabilisatie_note and transitie_weeks and not extra_basis:
             note = stabilisatie_note
-        if key == 'basis1' and stabilisatie_note and extra_basis and not basis_note_used:
+        if key == 'basis1' and stabilisatie_note and basis_extended and not basis_note_used:
             note = stabilisatie_note
             basis_note_used = True
         if wks >= 4 and key not in ('taper_afbouw', 'wedstrijdweek', 'transitie'):
