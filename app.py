@@ -14,18 +14,40 @@ een duidelijk zichtbaar standaardwachtwoord — wijzig dit voor echt gebruik.
 import os
 import io
 import re
+import sys
 import json
+import time
 import base64
+import importlib
 
 import numpy as np
 import pandas as pd
 import streamlit as st
 import matplotlib
 matplotlib.use('Agg')
-import matplotlib.pyplot as plt
+from matplotlib.figure import Figure
 import matplotlib.dates as mdates
 
-import core
+
+def _import_core():
+    """Importeert core.py bestand tegen een race-conditie die de pagina leeg liet hangen.
+
+    Streamlit bewaakt lokale modules en haalt core.py uit sys.modules zodra het bestand
+    verandert. Bij een deploy valt dat samen met het opnieuw uitvoeren van dit script: de
+    import-machinerie van Python vindt de module dan halverwege niet meer en gooit
+    KeyError: 'core'. Het script stopt op regel 1 en de bezoeker blijft naar lege
+    laad-balkjes kijken (waargenomen op Streamlit Cloud, telkens vlak na een push).
+    Een nieuwe poging volstaat: dan staat sys.modules weer stabiel."""
+    for _ in range(4):
+        try:
+            return importlib.import_module('core')
+        except KeyError:
+            sys.modules.pop('core', None)
+            time.sleep(0.2)
+    return importlib.import_module('core')
+
+
+core = _import_core()
 
 st.set_page_config(page_title='De Musculatuur — AI performance assistent', page_icon='💪', layout='wide')
 
@@ -443,7 +465,12 @@ def make_chart(daily, acwr, today, athlete):
 
     DM_MAROON, DM_GREEN, DM_PEACH = '#5B1F2C', '#6FA98A', '#F0D7B7'
 
-    fig, ax1 = plt.subplots(figsize=(9, 4.0))
+    # Bewust Figure() i.p.v. plt.subplots(): pyplot houdt elke aangemaakte figuur bij in een
+    # globale registry die pas leegloopt bij plt.close(). In een langdraaiende Streamlit-app
+    # stapelen die figuren zich op over alle sessies heen, tot het geheugen vol zit en de app
+    # omvalt (opnieuw een lege pagina voor de coach). Een losse Figure komt daar nooit in.
+    fig = Figure(figsize=(9, 4.0))
+    ax1 = fig.subplots()
     fig.patch.set_facecolor('#FBF6F2')
     ax1.set_facecolor('#FBF6F2')
     ax1.bar(w.index, w.values, width=0.9, color=DM_PEACH, edgecolor=DM_MAROON, linewidth=0.3,
