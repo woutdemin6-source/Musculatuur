@@ -665,6 +665,10 @@ def render_dashboard(athlete_name):
             f'belastbaarheid van {athlete_name} automatisch mee als startpunt.', icon='🎯')
     if st.button('Naar Jaarplanning', key='naar_jaarplanning', use_container_width=True):
         st.session_state['jp_athlete'] = athlete_name
+        # Zet meteen de juiste bron klaar, anders landt de coach op een upload-scherm
+        # terwijl de analyse van deze atleet er al is.
+        st.session_state['jp_bron'] = JP_BRON_ANALYSE
+        st.session_state['jp_pick'] = athlete_name
         goto(PAGE_JAARPLANNING)
 
     with st.expander('Methodologie & datakwaliteit'):
@@ -695,24 +699,28 @@ def render_dashboard(athlete_name):
 # Jaarplanning-tool (staat op zichzelf, met eigen lichte belastbaarheidsbepaling)
 # ---------------------------------------------------------------------------
 
-def _belastbaarheid_voor(athlete_name):
-    """Haalt de belastbaarheid van deze atleet op. Voorkeur voor een volledige analyse als die
-    in deze sessie al gemaakt is (Belastbaarheidsanalyse-tool); anders de lichte berekening die
-    op deze pagina zelf gebeurde. Zo hoeft een coach dezelfde export nooit twee keer te uploaden."""
-    full = st.session_state.get('athletes', {}).get(athlete_name)
-    if full:
-        acwr = full['summary']['acwr']
+JP_BRON_ANALYSE = 'Uit een eerdere analyse'
+JP_BRON_UPLOAD = 'Nieuwe activities.csv uploaden'
+
+
+def _belastbaarheid_voor(athlete_name, bron):
+    """Haalt de belastbaarheid op uit de bron die de coach expliciet koos — er wordt bewust
+    niet stilletjes teruggevallen op de andere bron, zodat het cijfer in de readout altijd
+    komt van wat er in de keuze hierboven staat."""
+    if not athlete_name:
+        return None
+    if bron == JP_BRON_ANALYSE:
+        full = st.session_state.get('athletes', {}).get(athlete_name)
+        if not full:
+            return None
         return {
-            'current': acwr['current'],
+            'current': full['summary']['acwr']['current'],
             'sessies': full['summary']['totalSessionsAllTime'],
             'dateRange': full['summary']['dateRange'],
-            'todayIso': full['summary'].get('todayIso'),
-            'bron': 'volledige analyse',
+            'bron': 'eerdere analyse',
         }
     light = st.session_state.get('jp_belastbaarheid', {}).get(athlete_name)
-    if light:
-        return {**light, 'bron': 'activities.csv'}
-    return None
+    return {**light, 'bron': 'activities.csv'} if light else None
 
 
 def render_belastbaarheid_readout(bel):
@@ -757,25 +765,44 @@ def render_jaarplanning_page():
 
     # --- Stap 1: belastbaarheid als cijfermatige basis -----------------------
     st.markdown('##### ① Belastbaarheid als basis')
-    st.caption('Upload de activities.csv om de huidige A:C ratio te berekenen. Enkel dat cijfer wordt '
-               'hier gebruikt — voor de volledige analyse (blinde vlekken, trend, advies) gebruik je de '
-               'Belastbaarheidsanalyse-tool. Zonder upload werkt de planning ook, maar dan zonder '
-               'aanpassing aan de actuele belasting.')
+    st.caption('Enkel de A:C ratio wordt hier gebruikt, als startpunt voor de eerste cyclus — voor de '
+               'volledige analyse (blinde vlekken, trend, advies) gebruik je de Belastbaarheidsanalyse-tool. '
+               'Zonder belastbaarheidscijfer werkt de planning ook, maar dan zonder aanpassing aan de '
+               'actuele belasting.')
 
     known = list(st.session_state.get('athletes', {}).keys())
-    c1, c2 = st.columns([2, 1])
-    with c1:
-        athlete_name = st.text_input('Naam atleet', value=st.session_state.get('jp_athlete', ''),
-                                      placeholder='bv. Jan Peeters', key='jp_athlete_input')
-    with c2:
-        ref_date = st.date_input('Referentiedatum', value=pd.Timestamp.now().normalize().date(),
-                                  key='jp_refdate')
-    st.session_state['jp_athlete'] = athlete_name
+    opties = [JP_BRON_ANALYSE, JP_BRON_UPLOAD] if known else [JP_BRON_UPLOAD]
+    # Een eerder gekozen bron die nu niet meer bestaat (bv. na uitloggen zijn er geen analyses
+    # meer) zou Streamlit doen struikelen op een ongeldige radio-waarde.
+    if st.session_state.get('jp_bron') not in opties:
+        st.session_state.pop('jp_bron', None)
+    bron = st.radio('Bron van de belastbaarheid', opties, horizontal=True, key='jp_bron')
+    if not known:
+        st.caption('Nog geen analyses in deze sessie. Analyseer een atleet in de '
+                   'Belastbaarheidsanalyse-tool en je kunt die hier rechtstreeks kiezen.')
 
-    if athlete_name and athlete_name in known:
-        st.success(f'{athlete_name} is in deze sessie al volledig geanalyseerd — die belastbaarheid '
-                   'wordt automatisch gebruikt. Een upload is hier niet nodig.', icon='✅')
+    if bron == JP_BRON_ANALYSE:
+        vorige = st.session_state.get('jp_athlete')
+        a1, a2 = st.columns([2, 1])
+        with a1:
+            athlete_name = st.selectbox('Geanalyseerde atleet', known,
+                                         index=known.index(vorige) if vorige in known else 0,
+                                         key='jp_pick')
+        with a2:
+            ref_date = st.date_input('Referentiedatum', value=pd.Timestamp.now().normalize().date(),
+                                      key='jp_refdate')
+        st.caption('De referentiedatum is hier enkel het startpunt van de planning — de A:C ratio komt '
+                   'uit de eerder uitgevoerde analyse.')
     else:
+        c1, c2 = st.columns([2, 1])
+        with c1:
+            athlete_name = st.text_input('Naam atleet', value=st.session_state.get('jp_athlete', ''),
+                                          placeholder='bv. Jan Peeters', key='jp_athlete_input')
+        with c2:
+            ref_date = st.date_input('Referentiedatum', value=pd.Timestamp.now().normalize().date(),
+                                      key='jp_refdate')
+        st.caption('De referentiedatum is zowel de peildatum voor de A:C ratio als het startpunt van de planning.')
+
         up_col, btn_col = st.columns([3, 1])
         with up_col:
             jp_file = st.file_uploader('activities.csv', type=['csv'], key='jp_upload',
@@ -796,7 +823,8 @@ def render_jaarplanning_page():
                 st.session_state.setdefault('jp_belastbaarheid', {})[athlete_name] = bel
                 st.rerun()
 
-    bel = _belastbaarheid_voor(athlete_name) if athlete_name else None
+    st.session_state['jp_athlete'] = athlete_name
+    bel = _belastbaarheid_voor(athlete_name, bron)
     render_belastbaarheid_readout(bel)
 
     if not athlete_name:
