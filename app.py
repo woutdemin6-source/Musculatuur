@@ -387,9 +387,12 @@ PAGE_JAARPLANNING = 'jaarplanning'
 
 # De prestatietest-suite is een zelfstandige HTML-tool die Streamlit enkel uitlevert
 # (zie static/prestatietest.html en enableStaticServing in .streamlit/config.toml).
-# Absoluut pad met leidende slash: op Streamlit Cloud draait de app in een iframe onder
-# /~/+/, waardoor een relatief pad naar de verkeerde plek zou wijzen.
-SUITE_URL = '/app/static/prestatietest.html'
+#
+# Bewust een RELATIEF pad, geen leidende slash. Lokaal staat de app op '/' en is het bestand
+# dus /app/static/..., maar op Streamlit Cloud draait de app onder het prefix /~/+/ en is het
+# /~/+/app/static/... Een relatief pad wordt door de browser tegen de juiste basis opgelost en
+# klopt daarom in beide omgevingen; een vast absoluut pad kan dat per definitie niet.
+SUITE_URL = 'app/static/prestatietest.html'
 
 TOOLS = [
     {'key': PAGE_BELASTBAARHEID, 'icon': '📊', 'titel': 'Belastbaarheidsanalyse atleet',
