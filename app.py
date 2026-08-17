@@ -257,17 +257,19 @@ section[data-testid="stSidebar"] .dm-logo-text .name {{ color: #FFFFFF !importan
     box-shadow: 0 3px 14px rgba(59,40,32,0.09); border-top: 5px solid {DM_GREEN};
     height: 100%; display: flex; flex-direction: column;
 }}
-.dm-tool-card.soon {{ border-top-color: #C9BBA8; background: #FCFAF8; }}
+/* Link naar een externe tool, gestyled als de groene pil-knoppen ernaast */
+.dm-tool-link {{
+    display: block; text-align: center; text-decoration: none !important;
+    background-color: {DM_GREEN}; color: #FFFFFF !important; border-radius: 999px;
+    font-family: 'Poppins', sans-serif; font-weight: 600; padding: 0.5rem 1.5rem;
+    transition: background-color 0.15s ease;
+}}
+.dm-tool-link:hover {{ background-color: {DM_GREEN_DARK}; color: #FFFFFF !important; }}
 .dm-tool-icon {{ font-size: 2rem; line-height: 1; margin-bottom: 0.7rem; }}
 .dm-tool-title {{ font-family: 'Playfair Display', serif; color: {DM_MAROON}; font-size: 1.2rem;
     font-weight: 700; margin-bottom: 0.4rem; }}
 .dm-tool-desc {{ font-family: 'Poppins', sans-serif; color: {DM_MUTED}; font-size: 0.88rem;
     line-height: 1.55; flex-grow: 1; }}
-.dm-tool-badge {{
-    display: inline-block; margin-top: 0.8rem; padding: 0.2rem 0.7rem; border-radius: 999px;
-    font-family: 'Poppins', sans-serif; font-size: 0.7rem; font-weight: 700; letter-spacing: 0.5px;
-    text-transform: uppercase; background: #F0EAE3; color: #8a7a68;
-}}
 
 /* Compacte belastbaarheid-uitkomst (basis onder de jaarplanning) */
 .dm-bel-readout {{
@@ -382,21 +384,26 @@ def md_bold_to_html(text):
 PAGE_HOME = 'home'
 PAGE_BELASTBAARHEID = 'belastbaarheid'
 PAGE_JAARPLANNING = 'jaarplanning'
-PAGE_VOEDING = 'voeding'
-PAGE_LACTAAT = 'lactaat'
+
+# De prestatietest-suite is een zelfstandige HTML-tool die Streamlit enkel uitlevert
+# (zie static/prestatietest.html en enableStaticServing in .streamlit/config.toml).
+# Absoluut pad met leidende slash: op Streamlit Cloud draait de app in een iframe onder
+# /~/+/, waardoor een relatief pad naar de verkeerde plek zou wijzen.
+SUITE_URL = '/app/static/prestatietest.html'
 
 TOOLS = [
     {'key': PAGE_BELASTBAARHEID, 'icon': '📊', 'titel': 'Belastbaarheidsanalyse atleet',
      'desc': 'Volledige analyse van trainingslast en A:C ratio uit een Strava-export: '
-             'kernbevindingen, blinde vlekken, trend en trainingsadvies.', 'klaar': True},
+             'kernbevindingen, blinde vlekken, trend en trainingsadvies.'},
     {'key': PAGE_JAARPLANNING, 'icon': '🎯', 'titel': 'Jaarplanning',
      'desc': 'Macro- en mesocyclus-voorstel per A-doel volgens Friel en Olbrecht, '
-             'terugwerkend vanaf de wedstrijddatum en afgestemd op de huidige belastbaarheid.',
-     'klaar': True},
-    {'key': PAGE_VOEDING, 'icon': '🥗', 'titel': 'Voedingsplan',
-     'desc': 'Voedingsadvies afgestemd op trainingsbelasting en wedstrijdplanning.', 'klaar': False},
-    {'key': PAGE_LACTAAT, 'icon': '🧪', 'titel': 'Lactaattest',
-     'desc': 'Verwerking van lactaatmetingen naar drempels en trainingszones.', 'klaar': False},
+             'terugwerkend vanaf de wedstrijddatum en afgestemd op de huidige belastbaarheid.'},
+    {'url': SUITE_URL, 'icon': '🧪', 'titel': 'Prestatietesten',
+     'desc': 'Lactaattest (LT1/LT2 en 7 zones), Critical Power, Critical Swim Speed en de '
+             '3/5 km looptest — met printbaar verslag per atleet.'},
+    {'url': f'{SUITE_URL}#voeding', 'icon': '🥗', 'titel': 'Voedingsplan',
+     'desc': 'Wedstrijdvoeding per minuut uitgeschreven: gels, vocht en zout, afgestemd op '
+             'afstand, niveau en weer (ACSM-richtwaarden).'},
 ]
 
 
@@ -418,31 +425,22 @@ def render_home():
         cols = st.columns(2, gap='medium')
         for col, tool in zip(cols, TOOLS[row_start:row_start + 2]):
             with col:
-                badge = '' if tool['klaar'] else '<div class="dm-tool-badge">In ontwikkeling</div>'
                 st.markdown(f"""
-                <div class="dm-tool-card{'' if tool['klaar'] else ' soon'}">
+                <div class="dm-tool-card">
                   <div class="dm-tool-icon">{tool['icon']}</div>
                   <div class="dm-tool-title">{tool['titel']}</div>
                   <div class="dm-tool-desc">{tool['desc']}</div>
-                  {badge}
                 </div>
                 """, unsafe_allow_html=True)
-                if st.button('Openen' if tool['klaar'] else 'Binnenkort beschikbaar',
-                             key=f"open_{tool['key']}", disabled=not tool['klaar'],
-                             use_container_width=True):
+                if tool.get('url'):
+                    # Externe tool: een echte link in een nieuw tabblad. Zo blijft de
+                    # Streamlit-sessie (login en gemaakte analyses) hier gewoon staan.
+                    st.markdown(
+                        f'<a href="{tool["url"]}" target="_blank" rel="noopener" '
+                        f'class="dm-tool-link">Openen ↗</a>', unsafe_allow_html=True)
+                elif st.button('Openen', key=f"open_{tool['key']}", use_container_width=True):
                     goto(tool['key'])
         st.markdown('<div style="height:1rem"></div>', unsafe_allow_html=True)
-
-
-def render_placeholder_page(icon, titel, desc):
-    st.markdown(f'<div class="dm-page-title">{icon} {titel}</div>', unsafe_allow_html=True)
-    st.markdown(f"""
-    <div class="dm-empty-state">
-      <div class="dm-empty-icon">🚧</div>
-      <div class="dm-empty-title">Deze tool wordt nog gebouwd</div>
-      <div class="dm-empty-desc">{desc}</div>
-    </div>
-    """, unsafe_allow_html=True)
 
 
 def belastbaarheid_status(current):
@@ -1035,14 +1033,6 @@ def main():
         render_belastbaarheid_page()
     elif page == PAGE_JAARPLANNING:
         render_jaarplanning_page()
-    elif page == PAGE_VOEDING:
-        render_placeholder_page('🥗', 'Voedingsplan',
-                                 'Voedingsadvies afgestemd op trainingsbelasting en wedstrijdplanning. '
-                                 'Deze tool bouwen we in een volgende stap.')
-    elif page == PAGE_LACTAAT:
-        render_placeholder_page('🧪', 'Lactaattest',
-                                 'Verwerking van lactaatmetingen naar drempels en trainingszones. '
-                                 'Deze tool bouwen we in een volgende stap.')
     else:
         render_home()
 

@@ -5,6 +5,14 @@
 [server]
 maxUploadSize = 50
 
+# De prestatietest-suite (static/prestatietest.html) is een zelfstandige HTML-tool die
+# Streamlit hier enkel uitlevert, niet rendert. Bewust als echte pagina i.p.v. in een iframe:
+# de printbare atleet-verslagen (@media print, A4) en de deep-links (#voeding, #lactate, ...)
+# werken alleen in een volwaardig venster. Let op: static-bestanden vallen buiten de
+# wachtwoord-gate van app.py — de suite bewaart zelf geen atleetdata, dus dat is een
+# bewuste afweging, geen vergetelheid.
+enableStaticServing = true
+
 # Huisstijl De Musculatuur (crème/perzik + bordeaux + saliegroen).
 # Fijnere details (logo, sidebar, kaarten) worden via custom CSS in app.py gezet —
 # dit theme-blok bepaalt de basiskleuren van Streamlit's eigen widgets.

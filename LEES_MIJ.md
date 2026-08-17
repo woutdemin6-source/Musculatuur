@@ -25,6 +25,29 @@ Opent een lokale website (standaard op http://localhost:8501) met:
 - Meerdere atleten per sessie, wisselen via het zijmenu
 - Download-knop voor de ruwe cijfers (JSON)
 
+Na de login kom je op een **welkomstpagina met vier tegels**:
+
+| Tegel | Wat het is | Waar de code zit |
+|---|---|---|
+| 📊 Belastbaarheidsanalyse atleet | Trainingslast + A:C ratio uit een Strava-export | `app.py` + `core.py` |
+| 🎯 Jaarplanning | Macro/mesocyclus per A-doel (Friel/Olbrecht) | `app.py` + `core.py` |
+| 🧪 Prestatietesten | Lactaattest, Critical Power, Critical Swim Speed, 3/5 km looptest | `static/prestatietest.html` |
+| 🥗 Voedingsplan | Wedstrijdvoeding per minuut (ACSM-richtwaarden) | `static/prestatietest.html#voeding` |
+
+De laatste twee zijn **één zelfstandig HTML-bestand** (geen Python, geen dependencies) dat Streamlit
+enkel uitlevert via `enableStaticServing`. Ze openen in een nieuw tabblad, zodat je Streamlit-sessie
+(login en gemaakte analyses) blijft staan. Bewust géén iframe: alleen in een volwaardig venster
+werken de printbare atleet-verslagen (A4) en de deep-links naar een specifiek onderdeel.
+
+Formules en codestructuur van die suite staan in `docs/FORMULES.md` en
+`docs/ARCHITECTUUR-prestatietest.md`.
+
+> **Let op bij de prestatietest-suite:** static-bestanden vallen **buiten** het wachtwoordscherm —
+> wie de directe URL kent, kan de suite openen. Dat is een bewuste afweging: de suite bewaart zelf
+> geen atleetdata (projecten gaan via JSON-export naar je eigen schijf). Zet er ook **nooit** een
+> Anthropic API-sleutel in de code: de foto-analyse vraagt die bij gebruik aan de coach zelf en
+> houdt ze enkel in het browsergeheugen.
+
 **Dit draait vandaag alleen lokaal** (op jouw computer of een server die jij aanzet) — zie "Hosting" onderaan voor hoe dit een echt gedeelde link wordt.
 
 **Huisstijl:** de tool gebruikt de kleuren en fonts van demusculatuur.be (crème/perzik, bordeaux serif koppen, saliegroene knoppen, donkerbruine sidebar). Het logo is een benaderde tekst-versie ("M" + wordmark) omdat ik het echte logobestand niet kon ophalen. Zet een `logo.png` (transparante achtergrond, bv. 300-400px breed) in deze map — de header pikt 'm automatisch op in plaats van de tekstversie, geen codewijziging nodig.

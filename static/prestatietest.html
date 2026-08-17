@@ -1,0 +1,1671 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lactaat Rapport Generator</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#E9ECEF; --surface:#ffffff; --surface-2:#F6F8FA;
+  --ink:#131820; --muted:#697384; --faint:#98A2B3;
+  --line:#E3E7ED; --line-strong:#D3D9E0;
+  --graphite:#1B222B;
+  --accent:#E23744;          /* action / lactate energy */
+  --accent-ink:#B21F2C;
+  --hr:#2563EB;              /* heart rate */
+  --la:#E23744;             /* lactate */
+  --ok:#16a34a;
+  --z1:#3B82F6; --z2:#22B8CF; --z3:#22C55E; --z4:#EAB308; --z5a:#F97316; --z5b:#EF4444; --z6:#B91C1C;
+  --radius:14px; --shadow:0 1px 2px rgba(16,24,40,.04),0 8px 28px -12px rgba(16,24,40,.16);
+  --mono:'Space Mono',ui-monospace,monospace;
+  --disp:'Space Grotesk',system-ui,sans-serif;
+  --body:'Inter',system-ui,sans-serif;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:15px;line-height:1.5;-webkit-font-smoothing:antialiased}
+h1,h2,h3,h4{font-family:var(--disp);margin:0;letter-spacing:-.01em}
+button{font-family:var(--body);cursor:pointer}
+input,select,textarea{font-family:var(--body)}
+.mono{font-family:var(--mono)}
+.app{max-width:1080px;margin:0 auto;padding:22px 20px 80px}
+
+/* ---------- top bar ---------- */
+.topbar{display:flex;align-items:center;gap:16px;margin-bottom:22px}
+.brand{display:flex;align-items:center;gap:12px;min-width:0}
+.brand img{height:40px;width:auto;object-fit:contain;display:block}
+.brand .btxt{line-height:1.1}
+.brand .btxt b{font-family:var(--disp);font-size:15px;font-weight:600;display:block}
+.brand .btxt span{font-size:11px;color:var(--muted);letter-spacing:.14em;text-transform:uppercase}
+.topbar .spacer{flex:1}
+.tag{font-family:var(--disp);font-weight:600;font-size:13px;color:var(--muted);letter-spacing:.02em}
+
+/* ---------- stepper ---------- */
+.steps{display:flex;gap:8px;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:6px;margin-bottom:22px;box-shadow:var(--shadow)}
+.step{flex:1;display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:8px;border:none;background:transparent;color:var(--muted);font-weight:500;font-size:13.5px;transition:.15s;white-space:nowrap}
+.step .num{width:22px;height:22px;border-radius:50%;background:var(--surface-2);border:1px solid var(--line-strong);display:grid;place-items:center;font-family:var(--mono);font-size:11px;color:var(--muted);flex:none}
+.step:hover{color:var(--ink);background:var(--surface-2)}
+.step.active{background:var(--graphite);color:#fff}
+.step.active .num{background:var(--accent);border-color:var(--accent);color:#fff}
+@media(max-width:720px){.step .lbl{display:none}.step{flex:0 0 auto;padding:10px 12px}}
+
+/* ---------- cards ---------- */
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:22px;margin-bottom:18px}
+.card h2{font-size:17px;font-weight:600;display:flex;align-items:center;gap:9px}
+.card h2 .ic{width:26px;height:26px;border-radius:7px;background:var(--surface-2);border:1px solid var(--line);display:grid;place-items:center;color:var(--accent)}
+.card .sub{color:var(--muted);font-size:13px;margin:4px 0 18px}
+.grid{display:grid;gap:14px}
+.g2{grid-template-columns:1fr 1fr}
+.g3{grid-template-columns:1fr 1fr 1fr}
+@media(max-width:640px){.g2,.g3{grid-template-columns:1fr}}
+label.fld{display:block}
+label.fld .lb{font-size:12px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px;display:block}
+input.in,select.in,textarea.in{width:100%;padding:10px 12px;border:1px solid var(--line-strong);border-radius:9px;background:var(--surface);font-size:14.5px;color:var(--ink);transition:.15s}
+input.in:focus,select.in:focus,textarea.in:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(226,55,68,.12)}
+textarea.in{resize:vertical;min-height:64px;line-height:1.5}
+
+/* buttons */
+.btn{display:inline-flex;align-items:center;gap:8px;padding:10px 16px;border-radius:10px;border:1px solid var(--line-strong);background:var(--surface);color:var(--ink);font-weight:600;font-size:14px;transition:.15s}
+.btn:hover{border-color:var(--faint);background:var(--surface-2)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+.btn.primary:hover{background:var(--accent-ink);border-color:var(--accent-ink)}
+.btn.dark{background:var(--graphite);border-color:var(--graphite);color:#fff}
+.btn.dark:hover{opacity:.9}
+.btn.ghost{background:transparent;border-color:transparent;color:var(--muted)}
+.btn.ghost:hover{color:var(--accent);background:transparent}
+.btn.sm{padding:7px 12px;font-size:13px}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.btnrow{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+
+/* logo tool */
+.logobox{display:flex;align-items:center;gap:16px;padding:14px;border:1px dashed var(--line-strong);border-radius:12px;background:var(--surface-2)}
+.logobox .prev{width:72px;height:72px;border-radius:10px;background:#fff;border:1px solid var(--line);display:grid;place-items:center;flex:none;overflow:hidden}
+.logobox .prev img{max-width:64px;max-height:64px;object-fit:contain}
+
+/* data table */
+.tablewrap{overflow-x:auto;border:1px solid var(--line);border-radius:12px}
+table.data{width:100%;border-collapse:collapse;min-width:520px}
+table.data th{background:var(--surface-2);text-align:left;font-size:11.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:600;padding:11px 12px;border-bottom:1px solid var(--line)}
+table.data td{padding:7px 10px;border-bottom:1px solid var(--line)}
+table.data tr:last-child td{border-bottom:none}
+table.data input{width:100%;border:1px solid transparent;background:transparent;padding:8px 10px;border-radius:7px;font-family:var(--mono);font-size:14px;text-align:center}
+table.data input:hover{background:var(--surface-2)}
+table.data input:focus{outline:none;border-color:var(--accent);background:#fff;box-shadow:0 0 0 3px rgba(226,55,68,.1)}
+table.data td.idx{font-family:var(--mono);color:var(--faint);font-size:12px;text-align:center;width:36px}
+table.data td.rm{width:40px;text-align:center}
+table.data td.calc{text-align:center;font-family:var(--mono);font-size:14px;color:var(--hr);font-weight:600;background:var(--surface-2)}
+.iconbtn{width:28px;height:28px;border-radius:7px;border:1px solid transparent;background:transparent;color:var(--faint);display:grid;place-items:center}
+.iconbtn:hover{background:#FEECEE;color:var(--accent);border-color:#FAD1D6}
+
+/* photo drop */
+.drop{border:2px dashed var(--line-strong);border-radius:14px;padding:26px;text-align:center;background:var(--surface-2);transition:.15s;cursor:pointer}
+.drop:hover,.drop.over{border-color:var(--accent);background:#fff}
+.drop .big{font-family:var(--disp);font-weight:600;font-size:15px;margin-top:8px}
+.drop small{color:var(--muted)}
+.thumb{display:flex;gap:14px;align-items:center;margin-top:14px}
+.thumb img{max-height:120px;border-radius:10px;border:1px solid var(--line)}
+
+/* method chips */
+.methodgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
+.chip{text-align:left;padding:12px 14px;border:1.5px solid var(--line-strong);border-radius:12px;background:var(--surface);transition:.15s;position:relative}
+.chip:hover{border-color:var(--faint)}
+.chip.sel{border-color:var(--accent);background:#FFF6F7;box-shadow:0 0 0 3px rgba(226,55,68,.1)}
+.chip .mlbl{font-weight:600;font-size:13.5px;display:flex;align-items:center;gap:6px}
+.chip .mdesc{font-size:11px;color:var(--muted);margin-top:2px;min-height:14px}
+.chip .mval{font-family:var(--mono);font-size:17px;font-weight:700;margin-top:8px;color:var(--ink)}
+.chip .mval small{font-size:11px;color:var(--muted);font-weight:400}
+.chip.na .mval{color:var(--faint)}
+.chip .dot{width:9px;height:9px;border-radius:50%;background:var(--line-strong)}
+.chip.sel .dot{background:var(--accent)}
+.manualrow{display:flex;gap:10px;align-items:end;flex-wrap:wrap;margin-top:12px;padding-top:12px;border-top:1px dashed var(--line)}
+.manualrow .fld{max-width:150px}
+
+.pill{display:inline-flex;align-items:center;gap:6px;font-family:var(--mono);font-size:12px;padding:3px 9px;border-radius:20px;background:var(--surface-2);border:1px solid var(--line)}
+.lt1c{color:var(--la)} .lt2c{color:var(--accent-ink)}
+
+/* zones preview */
+table.zones{width:100%;border-collapse:collapse;font-size:13.5px}
+table.zones th{text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);padding:9px 10px;border-bottom:1px solid var(--line);font-weight:600}
+table.zones td{padding:9px 10px;border-bottom:1px solid var(--line)}
+table.zones td.zn{font-weight:600}
+.zbar{width:8px;height:26px;border-radius:3px;display:inline-block;vertical-align:middle;margin-right:9px}
+table.zones .mono{font-size:13px}
+
+.note{font-size:12.5px;color:var(--muted);background:var(--surface-2);border:1px solid var(--line);border-radius:10px;padding:11px 13px;display:flex;gap:9px}
+.note b{color:var(--ink)}
+.spinner{width:16px;height:16px;border:2px solid rgba(255,255,255,.4);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite;display:inline-block}
+@keyframes spin{to{transform:rotate(360deg)}}
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--graphite);color:#fff;padding:12px 18px;border-radius:10px;font-size:14px;box-shadow:var(--shadow);opacity:0;pointer-events:none;transition:.25s;z-index:99}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(-4px)}
+.toast.err{background:var(--accent-ink)}
+
+.hide{display:none!important}
+.chart-holder svg{width:100%;height:auto;display:block}
+
+/* ================= REPORT ================= */
+.report{max-width:820px;margin:0 auto}
+.rpage{background:#fff;border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow);padding:44px 48px;margin-bottom:20px}
+.rhead{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid var(--graphite);padding-bottom:16px;margin-bottom:26px}
+.rhead .rt{font-family:var(--disp);font-weight:700;font-size:26px;letter-spacing:-.02em}
+.rhead .rt small{display:block;font-size:12px;font-weight:500;letter-spacing:.16em;text-transform:uppercase;color:var(--accent);margin-bottom:3px}
+.rhead img{height:52px}
+.rhead .rr{display:flex;flex-direction:column;align-items:flex-end;gap:8px}
+.rdisc{display:inline-block;font-family:var(--disp);font-weight:600;font-size:13px;letter-spacing:.02em;color:#fff;background:var(--graphite);border-radius:999px;padding:5px 13px;white-space:nowrap}
+
+/* ---------- advies (spraak → tekst) ---------- */
+textarea.in{width:100%;border:1px solid var(--line);background:var(--card);border-radius:10px;padding:11px 13px;font-family:var(--body);font-size:14px;line-height:1.5;color:var(--ink);resize:vertical;box-sizing:border-box}
+textarea.in:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(226,55,68,.1)}
+.micdot{width:9px;height:9px;border-radius:50%;background:var(--muted);display:inline-block;margin-right:7px;vertical-align:middle}
+#micBtn.rec{border-color:var(--accent);color:var(--accent)}
+#micBtn.rec .micdot{background:var(--accent);animation:pulse 1s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+.advice-note{margin-top:6px;border-left:3px solid var(--accent);background:var(--surface-2);border-radius:0 10px 10px 0;padding:12px 16px}
+.advice-note .an-lbl{font-family:var(--disp);font-weight:600;font-size:12px;letter-spacing:.04em;text-transform:uppercase;color:var(--accent);margin-bottom:5px}
+.advice-note p{margin:0;font-size:13.5px;line-height:1.6}
+.zone-legend{list-style:none;margin:14px 0 0;padding:0;display:flex;flex-direction:column;gap:9px}
+.zone-legend li{display:flex;gap:10px;align-items:flex-start;font-size:13.5px;line-height:1.55}
+.zone-legend .cdot{flex:none;width:13px;height:13px;border-radius:50%;margin-top:3px}
+.seg{display:inline-flex;border:1.5px solid var(--line);border-radius:10px;overflow:hidden}
+.seg button{border:none;background:var(--card);color:var(--muted);font-family:var(--body);font-size:13px;font-weight:600;padding:9px 14px;cursor:pointer;transition:.12s}
+.seg button+button{border-left:1.5px solid var(--line)}
+.seg button.active{background:var(--accent);color:#fff}
+
+/* ---------- verslag voorblad ---------- */
+.rcover{display:flex;flex-direction:column;justify-content:space-between;text-align:center;min-height:250mm}
+.rcover .cvtop{padding-top:24mm}
+.rcover .cvlogo{height:74px;margin:0 auto 34px;display:block}
+.rcover .cvrule{width:66px;height:3px;margin:0 auto 26px;background:linear-gradient(90deg,var(--accent),var(--graphite));border-radius:2px}
+.rcover .cveyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.30em;text-transform:uppercase;color:var(--accent);margin-bottom:20px}
+.rcover .cvtitle{font-family:var(--disp);font-weight:700;font-size:46px;line-height:1.04;letter-spacing:-.02em;color:var(--ink);margin:0 0 12px}
+.rcover .cvdisc{font-family:var(--disp);font-weight:500;font-size:19px;color:var(--muted);margin-bottom:46px}
+.rcover .cvname{font-family:var(--disp);font-weight:600;font-size:25px;color:var(--ink)}
+.rcover .cvdate{font-size:14px;color:var(--muted);margin-top:5px}
+.rcover .cvfoot{border-top:1px solid var(--line);padding:18px 0 4px;font-size:12.5px;color:var(--muted);line-height:1.5}
+.rcover .cvfoot .cvbrand{font-family:var(--disp);font-weight:600;color:var(--ink);font-size:14.5px}
+.rsec{margin-bottom:30px}
+.rsec:last-child{margin-bottom:0}
+.rsec h3{font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);font-weight:600;margin-bottom:12px;display:flex;align-items:center;gap:10px}
+.rsec h3::before{content:attr(data-n);font-family:var(--mono);background:var(--graphite);color:#fff;width:22px;height:22px;border-radius:6px;display:grid;place-items:center;font-size:11px;flex:none}
+.rsec p{font-size:13.5px;line-height:1.62;color:#33404F;margin:0 0 10px}
+.rsec p:last-child{margin-bottom:0}
+.basics{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--line);border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.basics .b{background:#fff;padding:13px 15px}
+.basics .b .k{font-size:10.5px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);font-weight:600}
+.basics .b .v{font-family:var(--disp);font-weight:600;font-size:15px;margin-top:3px}
+@media(max-width:640px){.basics{grid-template-columns:1fr 1fr}}
+.thr{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.thr .t{border:1px solid var(--line);border-radius:12px;padding:16px;position:relative;overflow:hidden}
+.thr .t::before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px}
+.thr .t.a::before{background:var(--z2)} .thr .t.b::before{background:var(--z5a)} .thr .t.m::before{background:var(--z6)}
+.thr .t .tl{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
+.thr .t .tn{font-family:var(--disp);font-weight:700;font-size:15px;margin:2px 0 12px}
+.thr .t .row{display:flex;justify-content:space-between;font-family:var(--mono);font-size:13px;padding:3px 0;border-bottom:1px dotted var(--line)}
+.thr .t .row:last-child{border-bottom:none}
+.thr .t .row span:first-child{color:var(--muted)}
+@media(max-width:640px){.thr{grid-template-columns:1fr}}
+.rzones{width:100%;border-collapse:collapse;font-size:12.5px;margin-top:4px}
+.rzones th{text-align:left;padding:8px 8px;border-bottom:2px solid var(--graphite);font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
+.rzones td{padding:8px 8px;border-bottom:1px solid var(--line);vertical-align:middle}
+.rzones .zc{width:7px;height:24px;border-radius:3px;display:inline-block;vertical-align:middle;margin-right:8px}
+.rzones .zn{font-family:var(--disp);font-weight:600}
+.rzones .mono{font-family:var(--mono);font-size:12px}
+.rzones .zd{font-size:11px;color:var(--muted);line-height:1.4}
+.rfoot{border-top:1px solid var(--line);margin-top:34px;padding-top:16px;display:flex;justify-content:space-between;align-items:flex-end;font-size:12px;color:var(--muted)}
+.rfoot .sig{font-family:var(--disp);color:var(--ink);font-weight:600}
+.rchart{border:1px solid var(--line);border-radius:12px;padding:16px;background:#fff}
+.legend{display:flex;gap:18px;flex-wrap:wrap;font-size:12px;color:var(--muted);margin-top:8px;justify-content:center}
+.legend i{width:22px;height:0;border-top:3px solid;display:inline-block;vertical-align:middle;margin-right:6px}
+
+/* ---------- test-type selector ---------- */
+.ttgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px}
+.ttbtn{text-align:left;border:1.5px solid var(--line);background:var(--card);border-radius:14px;padding:14px 16px;cursor:pointer;transition:.15s;display:flex;flex-direction:column;gap:4px}
+.ttbtn:hover{border-color:var(--muted)}
+.ttbtn b{font-family:'Space Grotesk',sans-serif;font-size:15px;color:var(--ink)}
+.ttbtn span{font-size:12.5px;color:var(--muted);line-height:1.35}
+.ttbtn.active{border-color:var(--accent);background:linear-gradient(0deg,rgba(226,55,68,.05),rgba(226,55,68,.05)),var(--card);box-shadow:0 0 0 3px rgba(226,55,68,.12)}
+.tt-only{display:none}
+.effrow{display:grid;grid-template-columns:1fr 1fr auto;gap:10px;align-items:end;margin-bottom:10px}
+.bigresult{display:flex;flex-wrap:wrap;gap:14px;margin:6px 0 4px}
+.rescard{flex:1;min-width:150px;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px 16px}
+.rescard .rlbl{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
+.rescard .rval{font-family:'Space Grotesk',sans-serif;font-size:26px;font-weight:600;color:var(--ink);margin-top:3px}
+.rescard .rval small{font-size:14px;color:var(--muted);font-weight:500}
+
+/* ---------- print ---------- */
+@media print{
+  @page{size:A4;margin:14mm}
+  body{background:#fff}
+  .app{max-width:none;padding:0}
+  .no-print{display:none!important}
+  .panel{display:none!important}
+  #reportPanel{display:block!important}
+  .report{max-width:none;margin:0}
+  .rpage{border:none;box-shadow:none;border-radius:0;padding:0 0 6mm;margin:0;page-break-inside:avoid}
+  .rcover{min-height:auto;height:247mm;padding:0;page-break-after:always}
+  .rsec{page-break-inside:avoid}
+  *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- top bar -->
+  <div class="topbar no-print">
+    <div class="brand">
+      <img id="brandLogo" alt="logo">
+      <div class="btxt"><b id="brandName">De Musculatuur</b><span id="brandSub">Lactaattest</span></div>
+    </div>
+    <div class="spacer"></div>
+    <div class="tag" id="topTag">Lactaat Rapport Generator</div>
+  </div>
+
+  <!-- stepper -->
+  <div class="steps no-print">
+    <button class="step active" data-step="0"><span class="num">1</span><span class="lbl">Gegevens</span></button>
+    <button class="step" data-step="1"><span class="num">2</span><span class="lbl">Testdata</span></button>
+    <button class="step" data-step="2"><span class="num">3</span><span class="lbl">Drempels &amp; zones</span></button>
+    <button class="step" data-step="3"><span class="num">4</span><span class="lbl">Verslag</span></button>
+  </div>
+
+  <!-- ===================== STEP 1 : SETUP ===================== -->
+  <section class="panel" data-panel="0">
+    <div class="card" id="testTypeCard">
+      <h2><span class="ic">⧉</span> Type test</h2>
+      <p class="sub">Kies welke test je afneemt. De invoer, grafiek, drempels en het verslag passen zich automatisch aan.</p>
+      <div class="ttgrid" id="testTypeGrid">
+        <button class="ttbtn" data-tt="lactate"><b>Lactaattest</b><span>Traptest met lactaat, HF en snelheid/tempo → LT1 &amp; LT2</span></button>
+        <button class="ttbtn" data-tt="cp"><b>Critical Power</b><span>Fietsen — 2 inspanningen (3 &amp; 12 min) → CP &amp; W'</span></button>
+        <button class="ttbtn" data-tt="css"><b>Critical Swim Speed</b><span>Zwemmen — time trials (bv. 400 &amp; 200 m) → CSS</span></button>
+        <button class="ttbtn" data-tt="cv"><b>3 of 5 km looptest</b><span>Lopen — 3 km en/of 5 km (Friel) → drempeltempo</span></button>
+        <button class="ttbtn" data-tt="voeding"><b>Wedstrijdvoeding</b><span>Voedingsplan per wedstrijd — gels, vocht &amp; zout op tijd</span></button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2><span class="ic">◈</span> Huisstijl &amp; contact</h2>
+      <p class="sub">Deze gegevens verschijnen in de hoofding en voettekst van het verslag.</p>
+      <div class="logobox" style="margin-bottom:16px">
+        <div class="prev"><img id="logoPrev" alt="logo preview"></div>
+        <div style="flex:1">
+          <div style="font-weight:600;font-size:14px">Logo</div>
+          <div style="color:var(--muted);font-size:12.5px;margin:2px 0 10px">PNG of JPG met transparante achtergrond werkt het mooist.</div>
+          <div class="btnrow">
+            <button class="btn sm" id="logoBtn">Logo vervangen</button>
+            <button class="btn sm ghost" id="logoReset">Standaard</button>
+            <input type="file" id="logoInput" accept="image/*" class="hide">
+          </div>
+        </div>
+      </div>
+      <div class="grid g2">
+        <label class="fld"><span class="lb">Merknaam</span><input class="in" id="coachBrand" placeholder="De Musculatuur"></label>
+        <label class="fld"><span class="lb">Naam coach</span><input class="in" id="coachName" placeholder="Pieter Luyckx"></label>
+        <label class="fld"><span class="lb">E-mail</span><input class="in" id="coachEmail" placeholder="coach@voorbeeld.be"></label>
+        <label class="fld"><span class="lb">Telefoon</span><input class="in" id="coachPhone" placeholder="04xx/xx.xx.xx"></label>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2><span class="ic">◔</span> Atleet &amp; test</h2>
+      <p class="sub">Basisgegevens die bovenaan het verslag komen.</p>
+      <div class="grid g2">
+        <label class="fld"><span class="lb">Naam atleet</span><input class="in" id="aName" placeholder="Voornaam Naam"></label>
+        <label class="fld"><span class="lb">Testdatum</span><input class="in" id="aDate" type="date"></label>
+        <label class="fld"><span class="lb">Sport</span><input class="in" id="aSport" placeholder="Triatlon / Lopen / Fietsen"></label>
+        <label class="fld"><span class="lb">Doel</span><input class="in" id="aGoal" placeholder="70.3 Knokke"></label>
+        <label class="fld" id="protoField" style="grid-column:1/-1"><span class="lb">Protocol / opmerking</span><input class="in" id="aProto" placeholder="1200m-protocol"></label>
+      </div>
+    </div>
+
+    <div class="btnrow no-print"><button class="btn primary" data-goto="1">Verder naar testdata →</button></div>
+  </section>
+
+  <!-- ===================== STEP 2 : DATA ===================== -->
+  <section class="panel hide" data-panel="1">
+    <div class="card tt-only tt-lactate">
+      <h2><span class="ic">◎</span> Kladversie inlezen met foto</h2>
+      <p class="sub">Neem een foto of upload een scan van je handgeschreven testblad. De AI leest de meetpunten uit en vult de tabel.</p>
+      <div class="drop" id="drop">
+        <div style="font-size:26px">📷</div>
+        <div class="big">Sleep een foto hierheen of klik om te kiezen</div>
+        <small>Werkt met afstand + tijd (of tempo) + hartslag + lactaat per trap</small>
+        <input type="file" id="photoInput" accept="image/*" capture="environment" class="hide">
+      </div>
+      <div id="thumbWrap" class="thumb hide">
+        <img id="thumb" alt="voorbeeld">
+        <div style="flex:1">
+          <button class="btn primary" id="ocrBtn"><span id="ocrLabel">Analyseer foto</span></button>
+          <button class="btn ghost sm" id="clearPhoto">Verwijderen</button>
+          <div id="ocrMsg" style="font-size:12.5px;color:var(--muted);margin-top:8px"></div>
+        </div>
+      </div>
+      <details id="apiWrap" style="margin-top:14px">
+        <summary style="font-size:12.5px;color:var(--muted);cursor:pointer">Foto-analyse instellen — Anthropic API-sleutel</summary>
+        <label class="fld" style="margin-top:10px;max-width:420px"><span class="lb">Anthropic API-sleutel</span><input class="in" id="apiKey" type="password" placeholder="sk-ant-..." autocomplete="off"></label>
+        <div class="note" style="margin-top:10px"><span>ℹ️</span><span>De foto-analyse laat Claude je kladblad lezen en vraagt daarom je eigen sleutel. Aanmaken kan op <b>console.anthropic.com</b> → <i>API keys</i> (verbruik wordt daar afgerekend). De sleutel blijft lokaal in je browser en gaat enkel naar de Anthropic-API. <b>Zet een versie met sleutel niet op een openbaar toegankelijke website</b> — houd ze lokaal of achter een login. Handmatig invullen werkt sowieso zonder sleutel.</span></div>
+      </details>
+    </div>
+
+    <div class="card tt-only tt-lactate">
+      <h2><span class="ic">▦</span> Meetpunten</h2>
+      <div class="btnrow" style="margin-bottom:10px">
+        <div class="seg" id="lactSportSeg">
+          <button data-sport="run" class="active">Lopen · afstand + tijd</button>
+          <button data-sport="bike">Fietsen · vermogen (watt)</button>
+        </div>
+      </div>
+      <p class="sub" id="meetSub">Elke rij is een trap. Vul afstand en tijd in — daaruit berekent de tool het tempo (min/km). Plus hartslag en lactaat per trap.</p>
+      <div class="tablewrap">
+        <table class="data">
+          <thead><tr id="dataHead"></tr></thead>
+          <tbody id="dataBody"></tbody>
+        </table>
+      </div>
+      <div class="btnrow" style="margin-top:12px">
+        <button class="btn sm" id="addRow">+ Rij toevoegen</button>
+        <button class="btn sm ghost" id="loadExample">Voorbeeld laden</button>
+      </div>
+    </div>
+
+    <!-- Critical Power (fietsen) -->
+    <div class="card tt-only tt-cp">
+      <h2><span class="ic" style="color:var(--hr)">◧</span> Inspanningen — Critical Power</h2>
+      <p class="sub">Twee maximale inspanningen van verschillende duur, elk zo gelijkmatig mogelijk gereden (bij voorkeur op aparte dagen). Vul het gemiddelde vermogen in. Standaard 3 en 12 minuten.</p>
+      <div id="cpBody"></div>
+      <div class="btnrow" style="margin-top:4px">
+        <button class="btn sm" id="cpAdd">+ Inspanning toevoegen</button>
+        <button class="btn sm ghost" id="cpReset">Standaard 3 + 12 min</button>
+      </div>
+      <div class="note" style="margin-top:10px"><span>ℹ️</span><span>Twee inspanningen volstaan (3 + 12 min). Voeg een derde toe (bv. 5–6 min) voor een nauwkeuriger model — bij 3+ inspanningen wordt CP via lineaire regressie bepaald. Duur mag je aanpassen (mm:ss of minuten).</span></div>
+    </div>
+
+    <!-- Critical Swim Speed (zwemmen) -->
+    <div class="card tt-only tt-css">
+      <h2><span class="ic" style="color:var(--hr)">◧</span> Time trials — Critical Swim Speed</h2>
+      <p class="sub">Twee (of meer) maximale afstanden, all-out gezwommen met volledige recuperatie ertussen. Standaard 400 m en 200 m. Vul de tijd in als mm:ss.</p>
+      <div id="cssBody"></div>
+      <div class="btnrow" style="margin-top:10px">
+        <button class="btn sm" id="cssAdd">+ Afstand toevoegen</button>
+        <button class="btn sm ghost" id="cssReset">Standaard 400/200</button>
+      </div>
+    </div>
+
+    <!-- Critical Velocity (lopen) -->
+    <div class="card tt-only tt-cv">
+      <h2><span class="ic" style="color:var(--hr)">◧</span> Testtijden — Critical Velocity (3 en/of 5 km)</h2>
+      <p class="sub">Vul 3 km, 5 km, of allebei in (maximale tijdritten, all-out). Met twee afstanden wordt de drempel gemeten; met één afstand wordt ze geschat. Tijden als mm:ss.</p>
+      <div class="grid g2">
+        <label class="fld"><span class="lb">Tijd 3 km (mm:ss)</span><input class="in mono" id="cvT3" placeholder="12:00"></label>
+        <label class="fld"><span class="lb">Tijd 5 km (mm:ss)</span><input class="in mono" id="cvT5" placeholder="21:00"></label>
+        <label class="fld"><span class="lb">LTHR — drempelhartslag (bpm, optioneel)</span><input class="in mono" id="cvLthr" type="number" placeholder="bv. 165"></label>
+        <label class="fld"><span class="lb">Aangenomen D′ (m) — enkel bij één afstand</span><input class="in mono" id="cvDassume" type="number" placeholder="200"></label>
+      </div>
+      <div class="note" style="margin-top:10px"><span>ℹ️</span><span>Bij één afstand schat de tool de drempel via CV = (afstand − D′) / tijd, met D′ ≈ 200 m (aanpasbaar). Twee afstanden geven een nauwkeuriger, gemeten resultaat. De LTHR (voor de HF-zones volgens Friel) haal je uit een 30-min tijdrit: gemiddelde HF over de laatste 20 min.</span></div>
+    </div>
+
+    <!-- Wedstrijdvoeding -->
+    <div class="card tt-only tt-voeding">
+      <h2><span class="ic" style="color:var(--accent)">🍎</span> Wedstrijd &amp; voeding</h2>
+      <p class="sub">Kies de wedstrijd en verwachte tijd. De tool berekent hoeveel koolhydraten, vocht en zout je nodig hebt en schrijft een innameschema uit (welke minuut welke gel).</p>
+      <div class="grid g2">
+        <label class="fld"><span class="lb">Wedstrijd</span>
+          <select class="in" id="nRace"></select>
+        </label>
+        <label class="fld"><span class="lb">Verwachte eindtijd (u:mm)</span><input class="in mono" id="nTotal" placeholder="2:30"></label>
+        <label class="fld" id="nSwimWrap"><span class="lb">Zwemtijd (u:mm) — start voeding erna</span><input class="in mono" id="nSwim" placeholder="0:28"></label>
+        <label class="fld"><span class="lb">Lichaamsgewicht (kg)</span><input class="in mono" id="nWeight" type="number" placeholder="70"></label>
+        <label class="fld"><span class="lb">Gram koolhydraten per gel</span><input class="in mono" id="nGel" type="number" placeholder="25"></label>
+        <label class="fld"><span class="lb">Temperatuur (°C)</span><input class="in mono" id="nTemp" type="number" placeholder="20"></label>
+        <label class="fld"><span class="lb">Niveau atleet</span>
+          <div class="seg" id="nLevelSeg" style="width:100%">
+            <button data-lvl="rec" class="active" style="flex:1">Recreatief</button>
+            <button data-lvl="elite" style="flex:1">Elite</button>
+          </div>
+        </label>
+      </div>
+      <h3 style="font-family:var(--disp);font-size:14px;margin:16px 0 8px;color:var(--ink)">Andere koolhydraatbronnen (optioneel)</h3>
+      <div id="nutriItems"></div>
+      <div class="btnrow" style="margin-top:8px">
+        <button class="btn sm" id="nAddItem">+ Bron toevoegen</button>
+      </div>
+      <div class="note" style="margin-top:10px"><span>ℹ️</span><span>Richtwaarden volgen de ACSM/AND/DC-positie 'Nutrition and Athletic Performance' (2016): koolhydraten naargelang de duur (30–90 g/u), vocht 0,4–0,8 L/u afhankelijk van het weer, en extra natrium bij hitte of lange duur. Het blijft een algemeen plan — test alles op training.</span></div>
+    </div>
+
+    <div class="btnrow no-print">
+      <button class="btn" data-goto="0">← Terug</button>
+      <button class="btn primary" data-goto="2">Verder →</button>
+    </div>
+  </section>
+
+  <!-- ===================== STEP 3 : THRESHOLDS ===================== -->
+  <section class="panel hide" data-panel="2">
+    <div class="card tt-only tt-lactate">
+      <h2><span class="ic">◠</span> Lactaatcurve</h2>
+      <p class="sub">Snelheid, hartslag en lactaat. De gekozen drempels worden live op de curve getekend. Je kan de <b>LT1</b>- of <b>LT2</b>-bol rechtstreeks over de curve slepen; die drempel schakelt dan automatisch naar <b>Manueel</b>.</p>
+      <div class="chart-holder" id="liveChart"></div>
+      <div class="legend">
+        <span><i style="border-color:var(--hr)"></i>Hartslag</span>
+        <span>Lactaat: <i style="border-color:#12A150"></i>&lt; LT1 <i style="border-color:#E6A020"></i>LT1–LT2 <i style="border-color:#E23744"></i>&gt; LT2</span>
+        <span><i style="border-color:var(--graphite)"></i>LT1 / LT2</span>
+      </div>
+    </div>
+
+    <div class="card tt-only tt-lactate">
+      <h2><span class="ic la" style="color:var(--z2)">◐</span> Aerobe drempel — LT1</h2>
+      <p class="sub">Kies de methode die het best bij deze atleet past. De geselecteerde waarde gaat mee in het verslag en bepaalt de zones.</p>
+      <div class="methodgrid" id="lt1Methods"></div>
+      <div class="manualrow" id="lt1Manual">
+        <label class="fld"><span class="lb" id="lt1ManualLbl">Manueel — tempo (min/km)</span><input class="in mono" id="lt1ManualSpeed" placeholder="mm:ss"></label>
+        <div style="padding-bottom:10px;color:var(--muted);font-size:13px"><span id="lt1ManualUnit">Tempo</span> <b class="mono" id="lt1ManualPace" style="color:var(--ink)">—</b> · HF <b class="mono" id="lt1ManualHr" style="color:var(--ink)">—</b> bpm</div>
+      </div>
+    </div>
+
+    <div class="card tt-only tt-lactate">
+      <h2><span class="ic" style="color:var(--z5a)">◑</span> Anaerobe drempel — LT2</h2>
+      <p class="sub">Het omslagpunt. Vergelijk de methodes en kies de meest representatieve.</p>
+      <div class="methodgrid" id="lt2Methods"></div>
+      <div class="manualrow" id="lt2Manual">
+        <label class="fld"><span class="lb" id="lt2ManualLbl">Manueel — tempo (min/km)</span><input class="in mono" id="lt2ManualSpeed" placeholder="mm:ss"></label>
+        <div style="padding-bottom:10px;color:var(--muted);font-size:13px"><span id="lt2ManualUnit">Tempo</span> <b class="mono" id="lt2ManualPace" style="color:var(--ink)">—</b> · HF <b class="mono" id="lt2ManualHr" style="color:var(--ink)">—</b> bpm</div>
+      </div>
+    </div>
+
+    <div class="card tt-only tt-lactate">
+      <h2><span class="ic" style="color:var(--z6)">◾</span> Maximale waarden &amp; zones</h2>
+      <p class="sub">Standaard uit de laatste trap; pas gerust aan. De zones worden hieruit en uit LT1/LT2 afgeleid.</p>
+      <div class="grid g2" style="max-width:520px;margin-bottom:18px">
+        <label class="fld"><span class="lb">Max hartslag (bpm)</span><input class="in mono" id="maxHr" type="number"></label>
+        <label class="fld"><span class="lb" id="maxLbl">Max tempo (min/km)</span><input class="in mono" id="maxSpeed" placeholder="mm:ss"></label>
+      </div>
+      <div class="tablewrap"><div id="zonesPreview"></div></div>
+    </div>
+
+    <!-- Generic result + zones for CP / CSS / CV -->
+    <div class="card tt-only tt-generic">
+      <h2><span class="ic" style="color:var(--accent)">◆</span> <span id="genTitle">Resultaat</span></h2>
+      <p class="sub" id="genSub">De drempel en trainingszones worden live berekend uit je invoer.</p>
+      <div class="bigresult" id="genResult"></div>
+      <div class="tablewrap" style="margin-top:8px"><div id="genZones"></div></div>
+    </div>
+
+    <!-- Wedstrijdvoeding: plan -->
+    <div class="card tt-only tt-voeding">
+      <h2><span class="ic" style="color:var(--accent)">🍎</span> Voedingsplan</h2>
+      <p class="sub">Live berekend uit je wedstrijd, tijd en voeding. Het volledige uitgeschreven schema staat in het verslag.</p>
+      <div class="bigresult" id="nutriResult"></div>
+      <div class="tablewrap" style="margin-top:8px"><div id="nutriPlanBox"></div></div>
+    </div>
+
+    <div class="card">
+      <h2><span class="ic" style="color:var(--accent)">✎</span> Algemeen advies</h2>
+      <p class="sub">Je eigen bespreking of advies over deze test. Typ het, of dicteer met de microfoon (spraak → tekst). Dit verschijnt onderaan het verslag.</p>
+      <textarea class="in" id="adviceText" rows="4" placeholder="Bv. Focus de komende weken op rustige duurlopen onder LT1; bouw wekelijks één tempoblok rond LT2 in…"></textarea>
+      <div class="btnrow" style="margin-top:8px;align-items:center">
+        <button class="btn sm" id="micBtn"><span class="micdot"></span><span id="micLbl">Dicteer</span></button>
+        <span id="micHint" class="sub" style="margin:0"></span>
+      </div>
+    </div>
+
+    <div class="btnrow no-print">
+      <button class="btn" data-goto="1">← Terug</button>
+      <button class="btn primary" data-goto="3">Verslag bekijken →</button>
+    </div>
+  </section>
+
+  <!-- ===================== STEP 4 : REPORT ===================== -->
+  <section class="panel hide" data-panel="3" id="reportPanel">
+    <div class="card no-print" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
+      <div><h2 style="font-size:16px"><span class="ic">◫</span> Verslag</h2><p class="sub" style="margin:4px 0 0">Klaar om te delen. Print of bewaar als PDF, of sla je project op om later verder te werken.</p></div>
+      <div class="btnrow">
+        <button class="btn sm" id="saveProj">Project opslaan</button>
+        <button class="btn sm" id="loadProjBtn">Project laden</button>
+        <input type="file" id="loadProjInput" accept=".json,application/json" class="hide">
+        <button class="btn primary" id="printBtn">⎙ Print / PDF</button>
+      </div>
+    </div>
+    <div class="report" id="report"></div>
+    <div class="btnrow no-print" style="margin-top:4px"><button class="btn" data-goto="2">← Terug</button></div>
+  </section>
+
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+/* =========================================================================
+   LOGO — standaard logo (De Musculatuur). Vervang de string hieronder of
+   gebruik de knop "Logo vervangen" om een ander logo te laden.
+   ========================================================================= */
+const DEFAULT_LOGO = "data:image/png;base64,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";
+
+/* =========================================================================
+   ZONE-MODEL — pas deze fracties aan om de zone-indeling te wijzigen.
+   Fracties t.o.v. LT1 (a1), LT2 (a2) en Max (mx), voor zowel HF als snelheid.
+   ========================================================================= */
+const ZONE_MODEL = [
+  {name:"Zone 1", label:"LSD / Herstel",            color:"var(--z1)",  lo:a=>0.80*a.a1,               hi:a=>0.92*a.a1},
+  {name:"Zone 2", label:"Aerobe duur",              color:"var(--z2)",  lo:a=>0.92*a.a1,               hi:a=>a.a1},
+  {name:"Zone 3", label:"Tempo",                    color:"var(--z3)",  lo:a=>a.a1,                    hi:a=>a.a1+0.5*(a.a2-a.a1)},
+  {name:"Zone 4", label:"Subthreshold",             color:"var(--z4)",  lo:a=>a.a1+0.5*(a.a2-a.a1),    hi:a=>a.a2},
+  {name:"Zone 5a",label:"Superthreshold (LT2)",     color:"var(--z5a)", lo:a=>a.a2,                    hi:a=>a.a2+0.40*(a.mx-a.a2)},
+  {name:"Zone 5b",label:"Aerobe capaciteit (VO₂max)",color:"var(--z5b)",lo:a=>a.a2+0.40*(a.mx-a.a2),   hi:a=>a.a2+0.85*(a.mx-a.a2)},
+  {name:"Zone 6", label:"Anaerobe capaciteit",      color:"var(--z6)",  lo:a=>a.a2+0.85*(a.mx-a.a2),   hi:a=>a.mx},
+];
+const ZONE_DESC = [
+  "Rustige duurtraining met zeer lage belasting. Doel: herstel stimuleren, doorbloeding verbeteren, vermoeidheid afvoeren.",
+  "Lage tot matige intensiteit. Doel: basisuithouding ontwikkelen, vetmetabolisme verbeteren, aerobe capaciteit vergroten.",
+  "Matig-hoge intensiteit, comfortabel maar uitdagend. Doel: basissnelheid verhogen, efficiëntie verbeteren, langere inspanningen voorbereiden.",
+  "Net onder drempeltempo. Doel: lactaattolerantie en snelheid aan duurzaam wedstrijdtempo verhogen.",
+  "Tempo's en langere intervals net rond of boven LT2. Doel: het omslagpunt naar hogere snelheden verschuiven.",
+  "Intensieve intervals. Doel: maximale zuurstofopname verhogen, competitieve snelheid verbeteren.",
+  "Korte, krachtige intervals. Doel: anaerobe energieproductie verbeteren, piekvermogen/snelheid verhogen.",
+];
+
+/* =========================================================================
+   STATE
+   ========================================================================= */
+const EXAMPLE = [
+  {d:1000,t:360,v:10,hr:130,la:1.4},{d:1000,t:327,v:11,hr:138,la:1.3},{d:1000,t:300,v:12,hr:146,la:1.6},{d:1000,t:277,v:13,hr:154,la:2.2},
+  {d:1000,t:257,v:14,hr:161,la:3.4},{d:1000,t:240,v:15,hr:168,la:5.6},{d:1000,t:225,v:16,hr:174,la:8.2},
+];
+const EXAMPLE_BIKE = [
+  {t:300,v:150,hr:118,la:1.1},{t:300,v:180,hr:130,la:1.3},{t:300,v:210,hr:141,la:1.7},{t:300,v:240,hr:152,la:2.6},
+  {t:300,v:270,hr:162,la:4.2},{t:300,v:300,hr:171,la:6.6},{t:300,v:330,hr:178,la:9.4},
+];
+const state = {
+  logo: DEFAULT_LOGO,
+  testType:"lactate",           // lactate | cp | css | cv
+  coach:{brand:"De Musculatuur", name:"Pieter Luyckx", email:"", phone:""},
+  athlete:{name:"", date:"", sport:"", goal:"", proto:""},
+  inputMode:"dist",
+  lactSport:"run",              // lactaattest: run (afstand+tijd→tempo) | bike (watt)
+  points: Array.from({length:6},()=>({d:NaN,t:NaN,v:NaN,hr:NaN,la:NaN})),
+  lt1:{method:"b04", manualSpeed:null},
+  lt2:{method:"dmaxmod", manualSpeed:null},
+  max:{hr:null, speed:null},
+  cp:{efforts:[{p:NaN,t:180},{p:NaN,t:720}]},          // watt, seconden
+  css:{trials:[{d:400,t:NaN},{d:200,t:NaN}]},          // meter, seconden
+  cv:{t3k:NaN, t5k:NaN, lthr:NaN, dAssume:200},          // seconden, bpm, aangenomen D′ (m)
+  advice:"",
+  nutri:{race:"tri_olympic", total:150, swim:28, weightKg:70, gelGrams:25, tempC:20, elite:false, items:[{name:"Sportdrank (bidon 500 ml)", carbs:30, qty:2}]},
+  apiKey:""
+};
+
+/* Metadata per testtype (titel, x-as, drempelnaam) */
+const TEST_META={
+  lactate:{name:"Lactaattest", sub:"Lactaattest", disc:""},
+  cp:{name:"Critical Power test", sub:"Critical Power (fietsen)", disc:"Fietsen"},
+  css:{name:"Critical Swim Speed test", sub:"Critical Swim Speed (zwemmen)", disc:"Zwemmen"},
+  cv:{name:"3 of 5 km looptest", sub:"3 of 5 km looptest (lopen)", disc:"Lopen"},
+  voeding:{name:"Wedstrijdvoedingsplan", sub:"Wedstrijdvoeding", disc:"Voeding"}
+};
+
+/* Wedstrijdpresets: swim=of er een zwemdeel is, defTotal/defSwim = richttijden (min) */
+const RACES={
+  tri_sprint:{label:"Triatlon — Sprint (0,75 / 20 / 5 km)", swim:true, defTotal:80, defSwim:15},
+  tri_olympic:{label:"Triatlon — Olympisch (1,5 / 40 / 10 km)", swim:true, defTotal:150, defSwim:28},
+  tri_half:{label:"Triatlon — Half / 70.3 (1,9 / 90 / 21,1 km)", swim:true, defTotal:330, defSwim:40},
+  tri_full:{label:"Triatlon — Full / Ironman (3,8 / 180 / 42,2 km)", swim:true, defTotal:720, defSwim:75},
+  run_5:{label:"Lopen — 5 km", swim:false, defTotal:25},
+  run_10:{label:"Lopen — 10 km", swim:false, defTotal:50},
+  run_15:{label:"Lopen — 15 km", swim:false, defTotal:75},
+  run_21:{label:"Lopen — halve marathon (21,1 km)", swim:false, defTotal:105},
+  run_42:{label:"Lopen — marathon (42,2 km)", swim:false, defTotal:225},
+  bike:{label:"Fietsen — wedstrijd / rit", swim:false, defTotal:120}
+};
+
+/* =========================================================================
+   NIEUWE TESTEN — berekeningen (Critical Power / CSS / Critical Velocity)
+   Alledrie hetzelfde 2-parametermodel: een rechte lijn tussen belasting en tijd.
+   ========================================================================= */
+function linreg(xs,ys){ const n=xs.length;let sx=0,sy=0,sxx=0,sxy=0;
+  for(let i=0;i<n;i++){sx+=xs[i];sy+=ys[i];sxx+=xs[i]*xs[i];sxy+=xs[i]*ys[i];}
+  const slope=(n*sxy-sx*sy)/(n*sxx-sx*sx); return {slope,intercept:(sy-slope*sx)/n}; }
+function fmtTime(sec){ if(!isFinite(sec)||sec<0)return "—"; const m=Math.floor(sec/60),s=Math.round(sec%60); return (s===60?(m+1):m)+":"+String(s===60?0:s).padStart(2,"0"); }
+function parseTime(str){ if(str==null)return NaN; str=(""+str).trim().replace(",","."); if(str==="")return NaN;
+  if(str.includes(":")){const[a,b]=str.split(":");return (parseInt(a,10)||0)*60+(parseFloat(b)||0);} return parseFloat(str); }
+
+// Critical Power uit inspanningen [{p:watt, t:seconden}]
+function calcCP(efforts){ const pts=efforts.filter(e=>isFinite(e.p)&&isFinite(e.t)&&e.t>0);
+  if(pts.length<2)return null;
+  if(pts.length===2){ const a=pts[0].t<pts[1].t?pts[0]:pts[1], b=pts[0].t<pts[1].t?pts[1]:pts[0];
+    const CP=(b.p*b.t-a.p*a.t)/(b.t-a.t); return {CP, Wp:(a.p-CP)*a.t}; }
+  const r=linreg(pts.map(e=>e.t),pts.map(e=>e.p*e.t)); return {CP:r.slope, Wp:r.intercept}; }
+
+// Critical Swim Speed uit time trials [{d:meter, t:seconden}]
+function calcCSS(trials){ const pts=trials.filter(e=>isFinite(e.d)&&isFinite(e.t)&&e.t>0);
+  if(pts.length<2)return null;
+  if(pts.length===2){ const a=pts[0].d<pts[1].d?pts[0]:pts[1], b=pts[0].d<pts[1].d?pts[1]:pts[0];
+    const CSS=(b.d-a.d)/(b.t-a.t); return {CSS, ADC:a.d-CSS*a.t}; }
+  const r=linreg(pts.map(e=>e.t),pts.map(e=>e.d)); return {CSS:r.slope, ADC:r.intercept}; }
+
+// Critical Velocity uit 3 km en/of 5 km (seconden). Bij één afstand: schatting
+// met aangenomen D′ (dAssume, m). Bij twee afstanden: gemeten CV & D′.
+function calcCV(t3k,t5k,dAssume){
+  const pts=[];
+  if(isFinite(t3k)&&t3k>0)pts.push({d:3000,t:t3k});
+  if(isFinite(t5k)&&t5k>0)pts.push({d:5000,t:t5k});
+  if(pts.length===0)return null;
+  if(pts.length===1){
+    const D=(isFinite(dAssume)&&dAssume>=0)?dAssume:200;
+    return {CV:(pts[0].d-D)/pts[0].t, Dp:D, single:true, dist:pts[0].d/1000};
+  }
+  const CV=(pts[1].d-pts[0].d)/(pts[1].t-pts[0].t);
+  return {CV, Dp:pts[0].d-CV*pts[0].t, single:false};
+}
+
+/* ---- Standaard zonemodellen (bewerkbaar) ----
+   CP: % van Critical Power (Coggan-stijl vermogenszones).
+   CSS: % van CSS-snelheid, weergegeven als tempo per 100 m.
+   Friel loop: pace-veelvouden van drempeltempo (>1 = trager) + HF als % LTHR. */
+const CP_ZONES=[["Zone 1 · Herstel",0,.55],["Zone 2 · Duur",.55,.75],["Zone 3 · Tempo",.75,.90],["Zone 4 · Drempel",.90,1.05],["Zone 5 · VO2max",1.05,1.20],["Zone 6 · Anaeroob",1.20,1.50],["Zone 7 · Neuromusculair",1.50,null]];
+const CSS_ZONES=[["Zone 1 · Herstel",0,.85],["Zone 2 · Aeroob",.85,.95],["Zone 3 · Drempel (CSS)",.95,1.00],["Zone 4 · VO2max",1.00,1.10],["Zone 5 · Sprint",1.10,null]];
+const FRIEL_PACE=[["Zone 1 · Herstel",1.29,null],["Zone 2 · Ext. duur",1.14,1.29],["Zone 3 · Int. duur",1.06,1.14],["Zone 4 · Subdrempel",1.01,1.06],["Zone 5a · Drempel",0.97,1.01],["Zone 5b · VO2max",0.93,0.97],["Zone 5c · Anaeroob",null,0.93]];
+const FRIEL_HR=[["Zone 1",0,.85],["Zone 2",.85,.89],["Zone 3",.90,.94],["Zone 4",.95,.99],["Zone 5a",1.00,1.02],["Zone 5b",1.02,1.06],["Zone 5c",1.06,null]];
+const ZCOLORS=["var(--z1)","var(--z2)","var(--z3)","var(--z4)","var(--z5a)","var(--z5b)","var(--z6)"];
+
+/* =========================================================================
+   MATH CORE
+   ========================================================================= */
+function polyfit(xs,ys,degree){
+  const n=xs.length; degree=Math.min(degree,n-1);
+  const X=[]; for(let i=0;i<n;i++){const r=[];for(let j=0;j<=degree;j++)r.push(Math.pow(xs[i],j));X.push(r);}
+  const m=degree+1, A=Array.from({length:m},()=>new Array(m).fill(0)), b=new Array(m).fill(0);
+  for(let r=0;r<m;r++){for(let c=0;c<m;c++){let s=0;for(let i=0;i<n;i++)s+=X[i][r]*X[i][c];A[r][c]=s;}let s=0;for(let i=0;i<n;i++)s+=X[i][r]*ys[i];b[r]=s;}
+  for(let col=0;col<m;col++){let p=col;for(let r=col+1;r<m;r++)if(Math.abs(A[r][col])>Math.abs(A[p][col]))p=r;[A[col],A[p]]=[A[p],A[col]];[b[col],b[p]]=[b[p],b[col]];if(Math.abs(A[col][col])<1e-12)continue;for(let r=0;r<m;r++){if(r===col)continue;const f=A[r][col]/A[col][col];for(let c=col;c<m;c++)A[r][c]-=f*A[col][c];b[r]-=f*b[col];}}
+  const co=new Array(m).fill(0);for(let r=0;r<m;r++)co[r]=Math.abs(A[r][r])<1e-12?0:b[r]/A[r][r];return co;
+}
+const polyval=(c,x)=>c.reduce((s,ci,i)=>s+ci*Math.pow(x,i),0);
+function interpY(xs,ys,x){
+  if(xs.length<2) return ys[0];
+  if(x<=xs[0]){const t=(x-xs[0])/(xs[1]-xs[0]);return ys[0]+t*(ys[1]-ys[0]);}
+  for(let i=0;i<xs.length-1;i++)if(x>=xs[i]&&x<=xs[i+1]){const t=(x-xs[i])/(xs[i+1]-xs[i]);return ys[i]+t*(ys[i+1]-ys[i]);}
+  const n=xs.length,t=(x-xs[n-2])/(xs[n-1]-xs[n-2]);return ys[n-2]+t*(ys[n-1]-ys[n-2]);
+}
+function speedAtLactate(pts,target){
+  for(let i=0;i<pts.length-1;i++){const a=pts[i].la,b=pts[i+1].la;if(a<=target&&b>=target&&b>a){const t=(target-a)/(b-a);return pts[i].v+t*(pts[i+1].v-pts[i].v);}}
+  return null;
+}
+const baseline=pts=>Math.min(...pts.map(p=>p.la));
+function dmax(pts,startIdx){
+  const xs=pts.map(p=>p.v),ys=pts.map(p=>p.la),co=polyfit(xs,ys,3);
+  const P1={x:pts[startIdx].v,y:pts[startIdx].la},P2={x:pts[pts.length-1].v,y:pts[pts.length-1].la};
+  const dx=P2.x-P1.x,dy=P2.y-P1.y,den=Math.hypot(dx,dy)||1e-9;
+  let best=-1,bx=P1.x;
+  for(let k=0;k<=400;k++){const x=P1.x+(P2.x-P1.x)*k/400,y=polyval(co,x);const d=Math.abs(dy*x-dx*y+P2.x*P1.y-P2.y*P1.x)/den;if(d>best){best=d;bx=x;}}
+  return bx;
+}
+const dmaxModStart=pts=>{for(let i=1;i<pts.length;i++)if(pts[i].la-pts[i-1].la>=0.4)return i-1;return 0;};
+function segFit(pts){
+  const n=pts.length; if(n<4){return {ltp1:pts[0]?.v??null, ltp2:pts[n-1]?.v??null};}
+  const fit=(a,b)=>{let sx=0,sy=0,sxx=0,sxy=0,c=0;for(let i=a;i<=b;i++){sx+=pts[i].v;sy+=pts[i].la;sxx+=pts[i].v*pts[i].v;sxy+=pts[i].v*pts[i].la;c++;}const m=(c*sxy-sx*sy)/((c*sxx-sx*sx)||1e-9),q=(sy-m*sx)/c;let sse=0;for(let i=a;i<=b;i++){const e=pts[i].la-(m*pts[i].v+q);sse+=e*e;}return{m,q,sse};};
+  let best=null;
+  for(let i=1;i<n-3;i++)for(let j=i+2;j<n-1;j++){const s1=fit(0,i),s2=fit(i,j),s3=fit(j,n-1);const sse=s1.sse+s2.sse+s3.sse;if(!best||sse<best.sse)best={sse,s1,s2,s3};}
+  const lo=pts[0].v,hi=pts[n-1].v,clamp=x=>Math.min(hi,Math.max(lo,x));
+  if(!best){return {ltp1:clamp(pts[Math.floor(n/3)].v), ltp2:clamp(pts[Math.floor(2*n/3)].v)};}
+  const inter=(A,B)=>(B.q-A.q)/((A.m-B.m)||1e-9);
+  return {ltp1:clamp(inter(best.s1,best.s2)), ltp2:clamp(inter(best.s2,best.s3))};
+}
+const pace=v=>{if(!v||v<=0)return "—";const s=3600/v,mm=Math.floor(s/60),ss=Math.round(s-mm*60);return `${mm}:${String(ss).padStart(2,"0")}`;};
+const paceToSpeed=p=>{if(!p)return null;const m=String(p).match(/(\d+)[:.](\d+)/);if(!m)return parseFloat(p)||null;return 60/(+m[1]+ (+m[2])/60);};
+function niceStep(range){ if(!(range>0))return 1; const raw=range/7, p=Math.pow(10,Math.floor(Math.log10(raw))), n=raw/p; const st=n<1.5?1:n<3?2:n<7?5:10; return st*p; }
+/* Eenheden van de lactaattest: lopen = tempo (min/km) uit afstand+tijd; fietsen = vermogen (watt). */
+function LU(){ return state.lactSport==="bike"
+  ? {run:false, axis:"Vermogen (W)", fmt:v=>isFinite(v)?Math.round(v)+"":"—", tick:v=>Math.round(v)+"", suf:" W", parse:s=>{const x=parseFloat(String(s).replace(",","."));return isFinite(x)?x:null;}, disc:"Fietsen"}
+  : {run:true, axis:"Tempo (min/km)", fmt:v=>(isFinite(v)&&v>0)?pace(v):"—", tick:v=>pace(v), suf:" /km", parse:s=>paceToSpeed(String(s).trim()), disc:"Lopen"}; }
+function fmtRange(lo,hi){ const u=LU(); return u.run ? (u.fmt(hi)+"–"+u.fmt(lo)) : (u.fmt(lo)+"–"+u.fmt(hi)); }
+function applyLactSport(){
+  const u=LU();
+  $$("#lactSportSeg button").forEach(b=>b.classList.toggle("active", b.dataset.sport===state.lactSport));
+  if($("#meetSub")) $("#meetSub").textContent = u.run
+    ? "Elke rij is een trap. Vul afstand en tijd in — daaruit berekent de tool het tempo (min/km). Plus hartslag en lactaat per trap."
+    : "Elke rij is een trap (bv. 5-minutenprotocol). Vul het vermogen (watt) in, plus hartslag en lactaat per trap.";
+  if($("#maxLbl"))$("#maxLbl").textContent = u.run ? "Max tempo (min/km)" : "Max vermogen (W)";
+  const mlbl = u.run ? "Manueel — tempo (min/km)" : "Manueel — vermogen (W)";
+  if($("#lt1ManualLbl"))$("#lt1ManualLbl").textContent=mlbl;
+  if($("#lt2ManualLbl"))$("#lt2ManualLbl").textContent=mlbl;
+  ["#maxSpeed","#lt1ManualSpeed","#lt2ManualSpeed"].forEach(s=>{if($(s))$(s).placeholder=u.run?"mm:ss":"watt";});
+  ["#lt1ManualUnit","#lt2ManualUnit"].forEach(s=>{if($(s))$(s).textContent=u.run?"Tempo":"Vermogen";});
+}
+
+function sortedPoints(){return state.points.filter(p=>isFinite(p.v)&&isFinite(p.hr)&&isFinite(p.la)&&p.v>0).slice().sort((a,b)=>a.v-b.v);}
+
+/* method definitions */
+const LT1_METHODS=[
+  {id:"manual",label:"Manueel",desc:"eigen keuze"},
+  {id:"baseline",label:"Baseline",desc:"+0,2 mmol boven laagste"},
+  {id:"b04",label:"Baseline + 0,4",desc:"laagste + 0,4 mmol"},
+  {id:"b05",label:"Baseline + 0,5",desc:"laagste + 0,5 mmol"},
+  {id:"mmol2",label:"2 mmol",desc:"vaste 2,0 mmol/l"},
+  {id:"ltp1",label:"Lactate turn point 1",desc:"segmentregressie"},
+];
+const LT2_METHODS=[
+  {id:"manual",label:"Manueel",desc:"eigen keuze"},
+  {id:"dmax",label:"D-max",desc:"max. afstand tot lijn"},
+  {id:"dmaxmod",label:"D-max modified",desc:"start na +0,4 mmol stijging"},
+  {id:"mmol4",label:"4 mmol",desc:"vaste 4,0 mmol/l (OBLA)"},
+  {id:"ltp2",label:"Lactate turn point 2",desc:"segmentregressie"},
+];
+function computeLT1(pts){
+  if(pts.length<2)return{};
+  const bl=baseline(pts),sf=segFit(pts);
+  return {baseline:speedAtLactate(pts,bl+0.2), b04:speedAtLactate(pts,bl+0.4), b05:speedAtLactate(pts,bl+0.5), mmol2:speedAtLactate(pts,2.0), ltp1:sf.ltp1};
+}
+function computeLT2(pts){
+  if(pts.length<2)return{};
+  const sf=segFit(pts);
+  return {dmax:dmax(pts,0), dmaxmod:dmax(pts,dmaxModStart(pts)), mmol4:speedAtLactate(pts,4.0), ltp2:sf.ltp2};
+}
+function chosenSpeed(which){
+  const pts=sortedPoints(); if(pts.length<2)return null;
+  const st=state[which], vals= which==="lt1"?computeLT1(pts):computeLT2(pts);
+  if(st.method==="manual")return isFinite(st.manualSpeed)?st.manualSpeed:null;
+  return vals[st.method]??null;
+}
+function thresholdInfo(which){
+  const pts=sortedPoints(); const v=chosenSpeed(which); if(v==null||pts.length<2)return null;
+  const hr=Math.round(interpY(pts.map(p=>p.v),pts.map(p=>p.hr),v));
+  const la=interpY(pts.map(p=>p.v),pts.map(p=>p.la),v);
+  return {v, hr, la, pace:pace(v)};
+}
+function maxInfo(){
+  const pts=sortedPoints();
+  const hr = isFinite(state.max.hr)&&state.max.hr? state.max.hr : (pts.length?Math.max(...pts.map(p=>p.hr)):null);
+  const speed = isFinite(state.max.speed)&&state.max.speed? state.max.speed : (pts.length?Math.max(...pts.map(p=>p.v)):null);
+  return {hr, speed, pace:pace(speed)};
+}
+function computeZones(){
+  const lt1=thresholdInfo("lt1"), lt2=thresholdInfo("lt2"), mx=maxInfo();
+  if(!lt1||!lt2||!mx.hr)return null;
+  const hrA={a1:lt1.hr,a2:lt2.hr,mx:mx.hr}, spA={a1:lt1.v,a2:lt2.v,mx:mx.speed};
+  return ZONE_MODEL.map((z,i)=>({
+    name:z.name,label:z.label,color:z.color,desc:ZONE_DESC[i],
+    hrLo:Math.round(z.lo(hrA)),hrHi:Math.round(z.hi(hrA)),
+    spLo:z.lo(spA),spHi:z.hi(spA)
+  }));
+}
+
+/* =========================================================================
+   SVG CHART
+   ========================================================================= */
+function chartSVG(w,h){
+  const CH='#2563EB',CL='#E23744',CG='#1B222B',CA='#B21F2C';
+  const pts=sortedPoints();
+  const M={t:18,r:56,b:44,l:52};
+  const iw=w-M.l-M.r, ih=h-M.t-M.b;
+  if(pts.length<2) return `<svg viewBox="0 0 ${w} ${h}"><text x="${w/2}" y="${h/2}" text-anchor="middle" fill="#98A2B3" font-family="Inter">Voeg minstens 2 meetpunten toe</text></svg>`;
+  const sp=pts.map(p=>p.v), hr=pts.map(p=>p.hr), la=pts.map(p=>p.la);
+  let xMin=Math.floor(Math.min(...sp)-0.5), xMax=Math.ceil(Math.max(...sp)+0.5);
+  let hrMin=Math.floor((Math.min(...hr)-10)/5)*5, hrMax=Math.ceil((Math.max(...hr)+8)/5)*5;
+  let laMax=Math.ceil(Math.max(...la)+1);
+  const X=v=>M.l+(v-xMin)/(xMax-xMin)*iw;
+  const Yh=v=>M.t+ih-(v-hrMin)/(hrMax-hrMin)*ih;
+  const Yl=v=>M.t+ih-(v/laMax)*ih;
+  let s=`<svg viewBox="0 0 ${w} ${h}" font-family="Inter" data-xmin="${xMin}" data-xmax="${xMax}" data-ml="${M.l}" data-iw="${iw}" data-w="${w}" data-xd0="${Math.min(...sp)}" data-xd1="${Math.max(...sp)}">`;
+  // achtergrondbanden per intensiteitszone: groen tot LT1, geel tot LT2, rood erna
+  { const GB="#12A150", AB="#E6A020", RB="#E23744", L=M.l, R=M.l+iw;
+    const cxp=v=>Math.max(L,Math.min(R,X(v)));
+    const bt1=thresholdInfo("lt1"), bt2=thresholdInfo("lt2");
+    const b1=(bt1&&isFinite(bt1.v))?bt1.v:null, b2=(bt2&&isFinite(bt2.v))?bt2.v:null;
+    const band=(x0,x1,c)=>{ if(x1>x0+0.5) s+=`<rect x="${x0.toFixed(1)}" y="${M.t}" width="${(x1-x0).toFixed(1)}" height="${ih}" fill="${c}" fill-opacity="0.10"/>`; };
+    if(b1!=null&&b2!=null&&b2>b1){ band(L,cxp(b1),GB); band(cxp(b1),cxp(b2),AB); band(cxp(b2),R,RB); }
+    else if(b1!=null){ band(L,cxp(b1),GB); band(cxp(b1),R,AB); }
+  }
+  // grid + x labels
+  const _u=LU(); const xStep=niceStep(xMax-xMin), xStart=Math.ceil(xMin/xStep)*xStep;
+  for(let x=xStart;x<=xMax+1e-6;x+=xStep){const px=X(x);s+=`<line x1="${px}" y1="${M.t}" x2="${px}" y2="${M.t+ih}" stroke="#EEF1F4"/>`;if(x>0)s+=`<text x="${px}" y="${M.t+ih+18}" text-anchor="middle" font-size="9.5" fill="#98A2B3">${_u.tick(x)}</text>`;}
+  // y-left (HR)
+  for(let y=hrMin;y<=hrMax;y+=10){const py=Yh(y);s+=`<line x1="${M.l}" y1="${py}" x2="${M.l+iw}" y2="${py}" stroke="#F3F5F7"/><text x="${M.l-8}" y="${py+3}" text-anchor="end" font-size="10" fill="${CH}">${y}</text>`;}
+  // y-right (lactate)
+  for(let y=0;y<=laMax;y+=2){const py=Yl(y);s+=`<text x="${M.l+iw+8}" y="${py+3}" font-size="10" fill="${CL}">${y}</text>`;}
+  // axis titles
+  s+=`<text x="${M.l+iw/2}" y="${h-6}" text-anchor="middle" font-size="10.5" fill="#697384">${_u.axis}</text>`;
+  s+=`<text transform="translate(13,${M.t+ih/2}) rotate(-90)" text-anchor="middle" font-size="10.5" fill="${CH}">Hartslag (bpm)</text>`;
+  s+=`<text transform="translate(${w-11},${M.t+ih/2}) rotate(-90)" text-anchor="middle" font-size="10.5" fill="${CL}">Lactaat (mmol/l)</text>`;
+  // smooth 3rd-degree polynomial curves across the measured range
+  const xd0=Math.min(...sp), xd1=Math.max(...sp), NS=120;
+  const coL=polyfit(sp,la,3);
+  let pl="";for(let k=0;k<=NS;k++){const x=xd0+(xd1-xd0)*k/NS;const yv=Math.max(0,Math.min(laMax,polyval(coL,x)));pl+=(k?"L":"M")+X(x).toFixed(1)+" "+Yl(yv).toFixed(1)+" ";}
+  const coH=polyfit(sp,hr,3);
+  let ph="";for(let k=0;k<=NS;k++){const x=xd0+(xd1-xd0)*k/NS;const yv=polyval(coH,x);ph+=(k?"L":"M")+X(x).toFixed(1)+" "+Yh(yv).toFixed(1)+" ";}
+  // HR curve
+  s+=`<path d="${ph}" fill="none" stroke="${CH}" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>`;
+  // lactate curve (3rd-degree polynomial), gekleurd per intensiteitszone:
+  // groen tot LT1, geel tussen LT1 en LT2, rood na LT2
+  const GRN="#12A150", AMB="#E6A020", RED="#E23744";
+  const segPath=(xa,xb)=>{ if(!(xb>xa))return ""; const n=Math.max(2,Math.round((xb-xa)/(xd1-xd0)*NS)); let d="";
+    for(let k=0;k<=n;k++){const x=xa+(xb-xa)*k/n;const yv=Math.max(0,Math.min(laMax,polyval(coL,x)));d+=(k?"L":"M")+X(x).toFixed(1)+" "+Yl(yv).toFixed(1)+" ";} return d; };
+  const laLine=(d,col)=> d?`<path d="${d}" fill="none" stroke="${col}" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>`:"";
+  const clampx=v=>Math.max(xd0,Math.min(xd1,v));
+  const t1i=thresholdInfo("lt1"), t2i=thresholdInfo("lt2");
+  const v1=(t1i&&isFinite(t1i.v))?clampx(t1i.v):null, v2=(t2i&&isFinite(t2i.v))?clampx(t2i.v):null;
+  if(v1!=null && v2!=null && v2>v1){
+    s+=laLine(segPath(xd0,v1),GRN)+laLine(segPath(v1,v2),AMB)+laLine(segPath(v2,xd1),RED);
+  } else if(v1!=null){
+    s+=laLine(segPath(xd0,v1),GRN)+laLine(segPath(v1,xd1),AMB);
+  } else {
+    s+=laLine(pl,CL);
+  }
+  // points
+  pts.forEach(p=>{s+=`<circle cx="${X(p.v)}" cy="${Yh(p.hr)}" r="3.4" fill="#fff" stroke="${CH}" stroke-width="2"/>`;});
+  pts.forEach(p=>{s+=`<circle cx="${X(p.v)}" cy="${Yl(p.la)}" r="3.4" fill="#fff" stroke="${CL}" stroke-width="2"/><text x="${X(p.v)}" y="${Yl(p.la)-8}" text-anchor="middle" font-size="9" fill="#697384" font-family="Space Mono">${p.la.toFixed(1)}</text>`;});
+  // thresholds
+  const drawTh=(info,label,col,which)=>{
+    if(!info)return; const px=X(info.v);
+    if(info.v<xMin||info.v>xMax)return;
+    const manual = which && state[which] && state[which].method==="manual";
+    s+=`<line x1="${px}" y1="${M.t}" x2="${px}" y2="${M.t+ih}" stroke="${col}" stroke-width="1.4" stroke-dasharray="5 3" opacity="0.85"/>`;
+    s+=`<circle cx="${px}" cy="${Yl(info.la)}" r="5.5" fill="${col}"/><circle cx="${px}" cy="${Yl(info.la)}" r="5.5" fill="none" stroke="#fff" stroke-width="1.6"/>`;
+    s+=`<g><rect x="${px-16}" y="${M.t-3}" width="32" height="16" rx="4" fill="${col}"/><text x="${px}" y="${M.t+8}" text-anchor="middle" font-size="9.5" font-weight="700" fill="#fff" font-family="Space Grotesk">${label}</text></g>`;
+    // sleepbaar: grijp de bol om de drempel manueel te verschuiven
+    s+=`<g pointer-events="none"><circle cx="${px}" cy="${Yl(info.la)}" r="9" fill="none" stroke="${col}" stroke-width="1.4" opacity="${manual?0.65:0.4}"/></g>`;
+    s+=`<rect data-drag="${which}" x="${px-12}" y="${M.t}" width="24" height="${ih}" fill="transparent" pointer-events="all" style="cursor:ew-resize;touch-action:none"/>`;
+    s+=`<circle data-drag="${which}" cx="${px}" cy="${Yl(info.la)}" r="13" fill="transparent" pointer-events="all" style="cursor:ew-resize;touch-action:none"/>`;
+  };
+  drawTh(thresholdInfo("lt1"),"LT1",CG,"lt1");
+  drawTh(thresholdInfo("lt2"),"LT2",CA,"lt2");
+  s+=`</svg>`; return s;
+}
+
+/* =========================================================================
+   RENDER — inputs / table / methods / zones
+   ========================================================================= */
+const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
+function toast(msg,err){const t=$("#toast");t.textContent=msg;t.className="toast show"+(err?" err":"");setTimeout(()=>t.className="toast",2600);}
+
+function renderDataTable(){
+  const head=$("#dataHead"), body=$("#dataBody"); body.innerHTML="";
+  const bike = state.lactSport==="bike";
+  if(bike){
+    head.innerHTML=`<th style="width:34px">#</th><th>Tijd (mm:ss)</th><th>Vermogen (W)</th><th>Hartslag (bpm)</th><th>Lactaat (mmol/l)</th><th style="width:40px"></th>`;
+    state.points.forEach((p,i)=>{
+      const tr=document.createElement("tr");
+      tr.innerHTML=`<td class="idx">${i+1}</td>
+        <td><input data-i="${i}" data-f="t" value="${isFinite(p.t)?fmtTime(p.t):''}" placeholder="5:00"></td>
+        <td><input data-i="${i}" data-f="v" value="${isFinite(p.v)?p.v:''}" placeholder="bv. 250"></td>
+        <td><input data-i="${i}" data-f="hr" value="${isFinite(p.hr)?p.hr:''}" placeholder="bpm"></td>
+        <td><input data-i="${i}" data-f="la" value="${isFinite(p.la)?p.la:''}" placeholder="mmol"></td>
+        <td class="rm"><button class="iconbtn" data-rm="${i}" title="verwijderen">✕</button></td>`;
+      body.appendChild(tr);
+    });
+  } else {
+    head.innerHTML=`<th style="width:34px">#</th><th>Afstand (m)</th><th>Tijd (mm:ss)</th><th>Tempo (min/km)</th><th>Hartslag (bpm)</th><th>Lactaat (mmol/l)</th><th style="width:40px"></th>`;
+    const paceOf=p=> (isFinite(p.v)&&p.v>0)? pace(p.v) : "—";
+    state.points.forEach((p,i)=>{
+      if(isFinite(p.d)&&isFinite(p.t)&&p.t>0)p.v=(p.d/1000)/(p.t/3600);
+      const tr=document.createElement("tr");
+      tr.innerHTML=`<td class="idx">${i+1}</td>
+        <td><input data-i="${i}" data-f="d" value="${isFinite(p.d)?p.d:''}" placeholder="bv. 1000"></td>
+        <td><input data-i="${i}" data-f="t" value="${isFinite(p.t)?fmtTime(p.t):''}" placeholder="mm:ss"></td>
+        <td class="calc"><span data-sp="${i}">${paceOf(p)}</span></td>
+        <td><input data-i="${i}" data-f="hr" value="${isFinite(p.hr)?p.hr:''}" placeholder="bpm"></td>
+        <td><input data-i="${i}" data-f="la" value="${isFinite(p.la)?p.la:''}" placeholder="mmol"></td>
+        <td class="rm"><button class="iconbtn" data-rm="${i}" title="verwijderen">✕</button></td>`;
+      body.appendChild(tr);
+    });
+  }
+  const recalc=i=>{ const p=state.points[i];
+    if(isFinite(p.d)&&isFinite(p.t)&&p.t>0)p.v=(p.d/1000)/(p.t/3600);
+    const el=body.querySelector(`[data-sp="${i}"]`); if(el)el.textContent=(isFinite(p.v)&&p.v>0)?pace(p.v):"—";
+  };
+  body.querySelectorAll("input").forEach(inp=>{
+    inp.addEventListener("input",e=>{
+      const i=+e.target.dataset.i,f=e.target.dataset.f,raw=e.target.value.trim(),val=raw.replace(",",".");
+      if(f==="d"){ state.points[i].d=parseFloat(val)||NaN; recalc(i); }
+      else if(f==="t"){ state.points[i].t=parseTime(raw); recalc(i); }
+      else if(f==="v"){ state.points[i].v=parseFloat(val)||NaN; }
+      else state.points[i][f]=parseFloat(val);
+      refreshAnalysis();
+    });
+  });
+  body.querySelectorAll("[data-rm]").forEach(b=>b.addEventListener("click",e=>{state.points.splice(+e.currentTarget.dataset.rm,1);renderDataTable();refreshAnalysis();}));
+}
+
+function methodCard(which,m,vals,selInfo){
+  const isManual=m.id==="manual";
+  let speed = isManual ? (state[which].method==="manual"?state[which].manualSpeed:null) : vals[m.id];
+  const pts=sortedPoints();
+  const na = !isManual && (speed==null||!isFinite(speed));
+  const sel = state[which].method===m.id;
+  let valhtml;
+  if(isManual){
+    valhtml = `<div class="mval">Handmatig</div>`;
+  }else if(na){
+    valhtml = `<div class="mval">n.v.t.</div>`;
+  }else{
+    const hr=Math.round(interpY(pts.map(p=>p.v),pts.map(p=>p.hr),speed));
+    valhtml = `<div class="mval">${LU().fmt(speed)}<small>${LU().suf}</small><br><small>${hr} bpm</small></div>`;
+  }
+  return `<button class="chip ${sel?'sel':''} ${na?'na':''}" data-which="${which}" data-m="${m.id}">
+    <div class="mlbl"><span class="dot"></span>${m.label}</div>
+    <div class="mdesc">${m.desc}</div>${valhtml}</button>`;
+}
+function renderMethods(){
+  const pts=sortedPoints();
+  const v1=computeLT1(pts), v2=computeLT2(pts);
+  $("#lt1Methods").innerHTML=LT1_METHODS.map(m=>methodCard("lt1",m,v1)).join("");
+  $("#lt2Methods").innerHTML=LT2_METHODS.map(m=>methodCard("lt2",m,v2)).join("");
+  $$(".chip").forEach(c=>c.addEventListener("click",()=>{
+    const which=c.dataset.which,mid=c.dataset.m;
+    state[which].method=mid;
+    if(mid==="manual"&&!isFinite(state[which].manualSpeed)){
+      const t=thresholdInfo(which); state[which].manualSpeed = t? +t.v.toFixed(1) : (pts.length?+pts[Math.floor(pts.length/2)].v.toFixed(1):null);
+    }
+    refreshAnalysis();
+  }));
+  // manual rows
+  ["lt1","lt2"].forEach(w=>{
+    const show=state[w].method==="manual";
+    $("#"+w+"Manual").style.display=show?"flex":"none";
+    const inp=$("#"+w+"ManualSpeed");
+    if(show){
+      const u=LU();
+      if(document.activeElement!==inp) inp.value = (isFinite(state[w].manualSpeed)&&state[w].manualSpeed>0)?u.fmt(state[w].manualSpeed):"";
+      const v = isFinite(state[w].manualSpeed)?state[w].manualSpeed:u.parse((inp.value||"").trim());
+      $("#"+w+"ManualPace").textContent = (isFinite(v)&&v>0)?(u.fmt(v)+(u.run?"":" W")):"—";
+      $("#"+w+"ManualHr").textContent = (isFinite(v)&&pts.length)?Math.round(interpY(pts.map(p=>p.v),pts.map(p=>p.hr),v)):"—";
+    }
+  });
+}
+function renderZonesPreview(){
+  const z=computeZones();
+  if(!z){$("#zonesPreview").innerHTML=`<div style="padding:16px;color:var(--muted);font-size:13px">Onvoldoende gegevens voor zones.</div>`;return;}
+  $("#zonesPreview").innerHTML=`<table class="zones"><thead><tr><th>Zone</th><th>HF (bpm)</th><th>${LU().axis}</th></tr></thead><tbody>`+
+    z.map(zo=>`<tr><td class="zn"><span class="zbar" style="background:${zo.color}"></span>${zo.name} · ${zo.label}</td>
+      <td class="mono">${zo.hrLo}–${zo.hrHi}</td>
+      <td class="mono">${fmtRange(zo.spLo,zo.spHi)}</td></tr>`).join("")+`</tbody></table>`;
+}
+function renderMaxInputs(){
+  const mx=maxInfo();
+  if(document.activeElement!==$("#maxHr")) $("#maxHr").value = state.max.hr ?? (mx.hr??"");
+  if(document.activeElement!==$("#maxSpeed")) $("#maxSpeed").value = state.max.speed?LU().fmt(state.max.speed):(mx.speed?LU().fmt(mx.speed):"");
+}
+
+/* =========================================================================
+   REPORT
+   ========================================================================= */
+function fmtDate(d){ if(!d)return "—"; const p=d.split("-"); return p.length===3?`${p[2]}/${p[1]}/${p[0]}`:d; }
+function coverPage(title, disc){
+  const a=state.athlete, c=state.coach;
+  const contact=[c.email,c.phone].filter(Boolean).join("  ·  ");
+  return `<div class="rpage rcover">
+    <div class="cvtop">
+      <img class="cvlogo" src="${state.logo}" alt="logo">
+      <div class="cvrule"></div>
+      <div class="cveyebrow">Prestatietest · Verslag</div>
+      <h1 class="cvtitle">${title}</h1>
+      <div class="cvdisc">${disc||''}</div>
+      <div class="cvwho">
+        <div class="cvname">${a.name||'—'}</div>
+        <div class="cvdate">${fmtDate(a.date)}</div>
+      </div>
+    </div>
+    <div class="cvfoot">
+      ${c.brand?`<div class="cvbrand">${c.brand}</div>`:''}
+      ${c.name?`<div>${c.name}</div>`:''}
+      ${contact?`<div>${contact}</div>`:''}
+    </div>
+  </div>`;
+}
+
+function esc(s){return (s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");}
+function adviceSection(){
+  const t=(state.advice||"").trim();
+  return t?`<div class="advice-note"><div class="an-lbl">Advies van de coach</div><p>${esc(t).replace(/\n/g,"<br>")}</p></div>`:"";
+}
+let _rec=null,_recOn=false;
+function initSpeech(){
+  const btn=$("#micBtn"),lbl=$("#micLbl"),hint=$("#micHint"),ta=$("#adviceText");
+  if(!btn||!ta)return;
+  ta.value=state.advice||"";
+  ta.addEventListener("input",e=>{ state.advice=e.target.value; renderReport(); });
+  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  if(!SR){ btn.disabled=true; hint.textContent="Spraakherkenning werkt niet in deze browser — gebruik Chrome, of typ het advies."; return; }
+  btn.addEventListener("click",()=>{
+    if(_recOn){ try{_rec.stop();}catch(e){} return; }
+    _rec=new SR(); _rec.lang="nl-BE"; _rec.interimResults=true; _rec.continuous=true;
+    let base=ta.value;
+    _rec.onstart=()=>{ _recOn=true; btn.classList.add("rec"); lbl.textContent="Stop"; hint.textContent="Aan het luisteren…"; };
+    _rec.onerror=e=>{ hint.textContent="Fout: "+e.error+" (geef microfoontoegang toe)"; };
+    _rec.onend=()=>{ _recOn=false; btn.classList.remove("rec"); lbl.textContent="Dicteer"; hint.textContent=""; state.advice=ta.value; renderReport(); };
+    _rec.onresult=e=>{ let interim="",fin="";
+      for(let i=e.resultIndex;i<e.results.length;i++){ const t=e.results[i][0].transcript; if(e.results[i].isFinal)fin+=t; else interim+=t; }
+      if(fin){ base=(base?base.replace(/\s*$/,"")+" ":"")+fin.trim(); }
+      ta.value = base + (interim?((base?" ":"")+interim):"");
+      state.advice=ta.value; if(fin)renderReport();
+    };
+    try{_rec.start();}catch(e){ hint.textContent="Kon niet starten: "+e.message; }
+  });
+}
+
+/* =========================================================================
+   WEDSTRIJDVOEDING — plan (koolhydraten / gels / vocht / natrium)
+   Richtwaarden op basis van de ACSM/AND/DC-positie 'Nutrition and Athletic Performance' (2016).
+   ========================================================================= */
+function hm(min){ if(!isFinite(min))return "—"; min=Math.round(min); const h=Math.floor(min/60), m=min%60; return h>0?(h+":"+String(m).padStart(2,"0")):(m+" min"); }
+function hhmm(min){ if(!isFinite(min))return ""; min=Math.round(min); return Math.floor(min/60)+":"+String(min%60).padStart(2,"0"); }
+function parseHM(str){ str=(""+(str==null?"":str)).trim().replace(",","."); if(!str)return NaN; if(str.includes(":")){const p=str.split(":");return (parseInt(p[0],10)||0)*60+(parseInt(p[1],10)||0);} return parseFloat(str); }
+function nutriPlan(){
+  const n=state.nutri, R=RACES[n.race]||RACES.tri_olympic;
+  const total=+n.total; if(!(total>0))return null;
+  const hours=total/60;
+  const swim = R.swim ? (isFinite(n.swim)&&n.swim>0?+n.swim:(R.defSwim||0)) : 0;
+  const feedStart=swim, feedEnd=Math.max(feedStart,total-5), feedWindow=Math.max(0,feedEnd-feedStart), feedHours=feedWindow/60;
+  const elite=!!n.elite;
+  let cph,cphNote;
+  if(hours<0.75){cph=0;cphNote="Onder ~45 min is bijtanken tijdens de inspanning niet nodig.";}
+  else if(hours<1){cph=elite?45:30;cphNote="45–75 min: kleine hoeveelheden of een koolhydraat-mondspoeling volstaan.";}
+  else if(hours<=2.5){cph=elite?90:60;cphNote=elite?"1–2,5 u (elite): richt op ~90 g/u met glucose:fructose.":"1–2,5 u: richt op 30–60 g koolhydraten per uur.";}
+  else if(hours<=3){cph=elite?120:90;cphNote=elite?"2,5–3 u (elite): tot ~120 g/u met glucose:fructose en een getrainde darm.":">2,5 u: tot 90 g/u, bij voorkeur met glucose:fructose (meerdere transporteerbare koolhydraten).";}
+  else {cph=120;cphNote="Ultra (>3 u): tot ~120 g/u is haalbaar met glucose:fructose (bv. 1:0,8) en een getrainde darm — bouw deze hoge inname geleidelijk op tijdens je trainingen.";}
+  const totalCarbs=Math.round(cph*feedHours);
+  const itemCarbs=(n.items||[]).reduce((a,it)=>a+((isFinite(it.carbs)&&isFinite(it.qty))?it.carbs*it.qty:0),0);
+  const gelCarbsNeeded=Math.max(0,totalCarbs-itemCarbs);
+  const gelG=(isFinite(n.gelGrams)&&n.gelGrams>0)?+n.gelGrams:25;
+  const nGels=cph>0?Math.round(gelCarbsNeeded/gelG):0;
+  const gels=[];
+  if(nGels>0&&feedWindow>0){const step=feedWindow/nGels;for(let i=0;i<nGels;i++)gels.push(Math.round(feedStart+step*(i+0.5)));}
+  const gelStep = nGels>0?Math.round(feedWindow/nGels):0;
+  const t=isFinite(n.tempC)?+n.tempC:20;
+  const fph = t<12?450:t<18?550:t<24?650:t<29?750:850;
+  const fluidTotal=Math.round(fph*hours);
+  const per15=Math.round(fph/4/10)*10;
+  const naph = t<18?500:t<24?700:t<29?900:1100;
+  const naTotal=Math.round(naph*hours);
+  const w=(isFinite(n.weightKg)&&n.weightKg>0)?+n.weightKg:70;
+  const preLo=Math.round(1*w),preHi=Math.round(3*w);
+  return {R,total,hours,swim,feedStart,feedEnd,feedWindow,feedHours,cph,cphNote,totalCarbs,itemCarbs,gelCarbsNeeded,gelG,nGels,gels,gelStep,t,fph,fluidTotal,per15,naph,naTotal,w,preLo,preHi};
+}
+function weerLabel(t){ return t<12?"koel":t<18?"mild":t<24?"gematigd warm":t<29?"warm":"heet"; }
+function nutriSummaryHTML(p){
+  if(p.cph===0) return `<p>${p.cphNote}</p>`;
+  const step=p.hours>4?20:15;
+  const drinkAmt=Math.round(p.fph*(step/60)/10)*10;
+  const gelCad=p.nGels>0?Math.round(p.feedWindow/p.nGels):0;
+  return `<ul class="zone-legend" style="gap:7px">
+    <li><span class="cdot" style="background:#12A150"></span><span><b>Koolhydraten:</b> ${p.cph} g/u${p.nGels>0?` — ≈ ${p.nGels} gels van ${p.gelG} g`:''}${p.itemCarbs>0?` + je eigen bronnen (${p.itemCarbs} g)`:''}, samen ~${p.totalCarbs} g.${p.nGels>0?` Neem om de ~${gelCad} min een gel.`:''}</span></li>
+    <li><span class="cdot" style="background:#2563EB"></span><span><b>Drinken:</b> ~${drinkAmt} ml elke ${step} min (≈ ${p.fph} ml/u, totaal ~${(p.fluidTotal/1000).toFixed(1)} L).</span></li>
+    <li><span class="cdot" style="background:#E6A020"></span><span><b>Natrium:</b> ~${p.naph} mg/u (≈ ${p.naTotal} mg totaal) via elektrolytentabletten, zout in de bidon of zoute voeding.</span></li>
+    <li><span class="cdot" style="background:#E23744"></span><span><b>Vooraf:</b> ${p.preLo}–${p.preHi} g koolhydraten in de 1–4 u voor de start; goed gehydrateerd vertrekken.</span></li>
+  </ul>`;
+}
+function nutriTimeline(p){
+  if(!p||p.cph===0||p.feedEnd<=p.feedStart) return [];
+  const step = p.hours>4?20:15;                          // drinkinterval (min)
+  const marks=[];
+  for(let m=Math.ceil(p.feedStart/step)*step; m<=p.feedEnd; m+=step) marks.push(m);
+  if(marks.length===0) marks.push(Math.round((p.feedStart+p.feedEnd)/2));
+  const drinkAmt=Math.round(p.fph*(step/60)/10)*10;      // ml per interval
+  const gelAt=new Array(marks.length).fill(0);
+  for(let i=0;i<p.nGels;i++){ const idx=Math.min(marks.length-1, Math.floor((i+0.5)*marks.length/p.nGels)); gelAt[idx]++; }
+  let gelNum=0, cum=0;
+  return marks.map((m,idx)=>{
+    let gel=""; if(gelAt[idx]>0){ const from=gelNum+1; for(let k=0;k<gelAt[idx];k++){gelNum++;cum+=p.gelG;} gel = gelAt[idx]===1?`Gel ${gelNum} — ${p.gelG} g`:`Gels ${from}–${gelNum} — ${gelAt[idx]*p.gelG} g`; }
+    return {min:m, drink:drinkAmt, gel, cum:gelAt[idx]>0?cum:null};
+  });
+}
+function nutriScheduleHTML(p){
+  if(p.cph===0) return `<p>${p.cphNote}</p>`;
+  const tl=nutriTimeline(p);
+  const rows=tl.map(r=>`<tr><td class="mono">${hm(r.min)}</td><td>~${r.drink} ml drinken</td><td>${r.gel||'—'}</td><td class="mono">${r.cum!=null?r.cum+' g':''}</td></tr>`).join("");
+  return `<table class="zones"><thead><tr><th>Tijd (u:mm)</th><th>Drinken</th><th>Gel / voeding</th><th>KH cumul.</th></tr></thead><tbody>${rows}</tbody></table>`;
+}
+function renderNutri(){
+  const p=nutriPlan(), R=$("#nutriResult"), S=$("#nutriPlanBox");
+  if(!R||!S)return;
+  if(!p){ R.innerHTML=resCard("Nog geen plan","—"); S.innerHTML=`<div style="padding:14px;color:var(--muted);font-size:13px">Kies een wedstrijd en vul de verwachte eindtijd in.</div>`; return; }
+  R.innerHTML =
+    resCard("Duur", hm(p.total))
+   +resCard("Koolhydraten", `${p.cph}<small> g/u</small>`)
+   +resCard("Totaal KH", `${p.totalCarbs}<small> g</small>`)
+   +resCard("Vocht", `${p.fph}<small> ml/u</small>`)
+   +resCard("Natrium", `${p.naph}<small> mg/u</small>`);
+  if(p.cph===0){ S.innerHTML=`<p style="color:var(--muted)">${p.cphNote}</p>`; return; }
+  S.innerHTML =
+    `<div style="font-family:var(--disp);font-weight:600;font-size:14px;margin:2px 0 8px;color:var(--ink)">Samenvatting</div>`
+   +nutriSummaryHTML(p)
+   +`<div style="font-family:var(--disp);font-weight:600;font-size:14px;margin:18px 0 8px;color:var(--ink)">Uitgeschreven schema</div>`
+   +nutriScheduleHTML(p);
+}
+function renderReportNutri(){
+  const a=state.athlete,c=state.coach,p=nutriPlan();
+  const meta=TEST_META.voeding;
+  let body;
+  if(!p){ body=`<div class="rsec"><h3 data-n="1">Wedstrijd</h3><p>Nog onvoldoende gegevens: kies een wedstrijd en vul de verwachte eindtijd in.</p></div>`; }
+  else {
+    const itemsList=(state.nutri.items||[]).filter(it=>isFinite(it.carbs)&&isFinite(it.qty)&&it.qty>0)
+      .map(it=>`${it.qty}× ${it.name||'voeding'} (${it.carbs} g) = ${it.carbs*it.qty} g`).join("; ");
+    const sched = p.cph===0 ? `<p>${p.cphNote}</p>` : nutriScheduleHTML(p);
+    body=`
+    <div class="rsec"><h3 data-n="1">Wedstrijd &amp; uitgangspunten</h3>
+      <div class="basics">
+        <div class="b"><div class="k">Wedstrijd</div><div class="v">${p.R.label}</div></div>
+        <div class="b"><div class="k">Verwachte tijd</div><div class="v">${hm(p.total)}${p.swim?` · zwem ${hm(p.swim)}`:''}</div></div>
+        <div class="b"><div class="k">Gewicht</div><div class="v">${p.w} kg</div></div>
+        <div class="b"><div class="k">Weer</div><div class="v">${p.t} °C · ${weerLabel(p.t)}</div></div>
+        <div class="b"><div class="k">Niveau</div><div class="v">${state.nutri.elite?'Elite':'Recreatief'}</div></div>
+      </div>
+      <p style="margin-top:10px">${p.cphNote}</p>
+    </div>
+    <div class="rsec"><h3 data-n="2">Samenvatting</h3>${nutriSummaryHTML(p)}</div>
+    <div class="rsec"><h3 data-n="3">Vóór de start</h3>
+      <p>Koolhydraten opladen: <b>${p.preLo}–${p.preHi} g</b> (1–4 g/kg) in de 1–4 uur voor de start, uit vezelarme, vlot verteerbare bronnen. Start goed gehydrateerd (lichtgele urine); bij warm weer wat extra natrium in de laatste uren.</p>
+    </div>
+    <div class="rsec"><h3 data-n="4">Koolhydraten tijdens de wedstrijd</h3>
+      <p>Doel: <b>${p.cph} g/u</b> vanaf ${hm(p.feedStart)}${p.swim?' (na het zwemmen, op de fiets)':''} tot ~${hm(p.feedEnd)} — samen ongeveer <b>${p.totalCarbs} g</b>.${itemsList?` Vaste bronnen: ${itemsList}. De gels vullen de rest aan (${p.gelCarbsNeeded} g, ≈ ${p.nGels} gels van ${p.gelG} g).`:` Dat zijn ≈ <b>${p.nGels} gels</b> van ${p.gelG} g.`}</p>
+      ${sched}
+    </div>
+    <div class="rsec"><h3 data-n="5">Vocht</h3>
+      <p>Streef naar ~<b>${p.fph} ml/u</b> (weer: ${weerLabel(p.t)}), oftewel ongeveer <b>${p.per15} ml elke 15 min</b> — totaal ~${(p.fluidTotal/1000).toFixed(1)} L. Drink vooral op de fiets en in rustige fasen; houd het vochttekort onder ~2% van je lichaamsgewicht en drink niet méér dan je zweet.</p>
+    </div>
+    <div class="rsec"><h3 data-n="6">Natrium (zout)</h3>
+      <p>Richt op ~<b>${p.naph} mg natrium per uur</b> (≈ ${p.naTotal} mg totaal), meer bij hitte, lange duur of als je een 'zoute zweter' bent. Gebruik elektrolytentabletten, zout in je bidon of zoute voeding. Zweet bevat gemiddeld ~1 g natrium per liter.</p>
+    </div>
+    ${state.advice&&state.advice.trim()?`<div class="rsec"><h3 data-n="7">Advies</h3>${adviceSection()}</div>`:''}`;
+  }
+  const html=coverPage("Wedstrijdvoedingsplan", meta.disc)+`<div class="rpage">
+    <div class="rhead"><div class="rt"><small>${meta.disc} · Rapport</small>${meta.name}</div><div class="rr"><img src="${state.logo}" alt="logo"><span class="rdisc">${p?p.R.label.split(' — ')[0]:'Voeding'}</span></div></div>
+    ${body}
+    <div class="rfoot"><div>Aarzel niet mij te contacteren bij verdere vragen.<br><span class="sig">${c.name||''}</span></div>
+      <div style="text-align:right">${c.brand?`<div class="sig">${c.brand}</div>`:''}${c.email?`<div>${c.email}</div>`:''}${c.phone?`<div>${c.phone}</div>`:''}</div></div>
+  </div>`;
+  $("#report").innerHTML=html;
+}
+function renderReport(){
+  if(state.testType==="voeding"){ renderReportNutri(); return; }
+  if(state.testType!=="lactate"){ renderReportGeneric(); return; }
+  const a=state.athlete,c=state.coach;
+  const lt1=thresholdInfo("lt1"),lt2=thresholdInfo("lt2"),mx=maxInfo(),z=computeZones();
+  const th=(info,cls,tl,tn)=>`<div class="t ${cls}"><div class="tl">${tl}</div><div class="tn">${tn}</div>
+     <div class="row"><span>Hartslag</span><span>${info?info.hr:'—'} bpm</span></div>
+     <div class="row"><span>${LU().run?'Tempo':'Vermogen'}</span><span>${info&&isFinite(info.v)?LU().fmt(info.v):'—'}${LU().suf}</span></div></div>`;
+  const html=coverPage("Lactaattest", LU().disc)+`
+  <div class="rpage">
+    <div class="rhead">
+      <div class="rt"><small>${LU().disc} · Rapport</small>Lactaattest</div>
+      <div class="rr"><img src="${state.logo}" alt="logo"><span class="rdisc">${LU().disc}</span></div>
+    </div>
+
+    <div class="rsec">
+      <h3 data-n="1">Basisgegevens</h3>
+      <p>Hieronder vind je een objectief overzicht van de resultaten van de lactaattest${a.proto?`, uitgevoerd volgens het ${a.proto}`:''}. Alle waarden worden rechtstreeks uit de testdata berekend en vormen de basis voor je zonestructuur volgens de wetenschappelijke literatuur.</p>
+      <div class="basics">
+        <div class="b"><div class="k">Naam</div><div class="v">${a.name||'—'}</div></div>
+        <div class="b"><div class="k">Testdatum</div><div class="v">${fmtDate(a.date)}</div></div>
+        <div class="b"><div class="k">Sport</div><div class="v">${a.sport||'—'}</div></div>
+        <div class="b"><div class="k">Doel</div><div class="v">${a.goal||'—'}</div></div>
+      </div>
+    </div>
+
+    <div class="rsec">
+      <h3 data-n="2">Grafische weergave</h3>
+      <p>Deze grafiek toont hoe je hartslag en lactaat oplopen naarmate ${LU().run?"het tempo":"het vermogen"} stijgt. De lactaatcurve is ingekleurd in drie intensiteitszones, afgebakend door je twee drempels LT1 en LT2.</p>
+      <div class="rchart">${chartSVG(760,380)}
+        <div class="legend">
+          <span><i style="border-color:var(--hr)"></i>Hartslag</span>
+          <span>Lactaat: <i style="border-color:#12A150"></i>&lt; LT1 <i style="border-color:#E6A020"></i>LT1–LT2 <i style="border-color:#E23744"></i>&gt; LT2</span>
+          <span><i style="border-color:var(--graphite)"></i>LT1</span>
+          <span><i style="border-color:var(--accent-ink)"></i>LT2</span>
+        </div>
+      </div>
+      <ul class="zone-legend">
+        <li><span class="cdot" style="background:#12A150"></span><span><b>Groen — tot LT1 (aerobe drempel):</b> rustige, goed vol te houden inspanning. Vetverbranding speelt een grote rol en het lactaat blijft laag en stabiel. Dit is je gebied voor duurtraining en herstel.</span></li>
+        <li><span class="cdot" style="background:#E6A020"></span><span><b>Geel — tussen LT1 en LT2:</b> het overgangsgebied. Het lactaat begint te stijgen, maar aanmaak en afbraak blijven nog in evenwicht — je verwerkt het lactaat even snel als je het aanmaakt. Hier situeren zich tempo- en drempeltrainingen.</span></li>
+        <li><span class="cdot" style="background:#E23744"></span><span><b>Rood — boven LT2 (anaerobe drempel):</b> het lactaat stapelt sneller op dan je het kan verwerken. De verzuring en vermoeidheid nemen snel toe, dus deze intensiteit hou je maar kort vol — het domein van intensieve intervallen.</span></li>
+      </ul>
+      <p><b>LT1</b> (aerobe drempel) markeert de overgang van makkelijk naar matig: tot hier verloopt de inspanning grotendeels aeroob. <b>LT2</b> (anaerobe drempel) is het omslagpunt van duurzaam zwaar naar niet lang vol te houden — de hoogste intensiteit waarbij het lactaat nog in evenwicht blijft. Samen bakenen ze de drie kleurzones af waarrond je trainingszones zijn opgebouwd.</p>
+    </div>
+
+    <div class="rsec">
+      <h3 data-n="3">Drempelwaardes</h3>
+      <div class="thr">
+        ${th(lt1,"a","Aerobe drempel","LT1 · FATmax")}
+        ${th(lt2,"b","Anaerobe drempel","LT2 · Omslagpunt")}
+        ${th(mx.hr?{hr:mx.hr,v:mx.speed,pace:mx.pace}:null,"m","Maximale waarden","Max")}
+      </div>
+      <p style="margin-top:14px"><b>Aerobe drempel (LT1)</b> — het hoogste tempo waarbij vetverbranding dominant blijft. Boven deze intensiteit neemt de bijdrage van koolhydraten substantieel toe. Training rond LT1 ontwikkelt duurvermogen en herstelcapaciteit.</p>
+      <p><b>Anaerobe drempel (LT2)</b> — de hoogste intensiteit waarbij lactaatproductie en -verwerking in evenwicht blijven. Een belangrijke voorspeller van prestaties op wedstrijdtempo. Training rond LT2 verhoogt de snelheid die je langdurig kan volhouden.</p>
+      <p><b>Maximale waarden</b> — het vermogen om hoge intensiteit te tolereren. Een normale of hoge maximale lactaatwaarde duidt op goede energieproductiecapaciteit en frisheid tijdens de test.</p>
+    </div>
+
+    <div class="rsec">
+      <h3 data-n="4">Trainingszones</h3>
+      ${z?`<table class="rzones"><thead><tr><th style="width:34%">Zone</th><th>HF (bpm)</th><th>${LU().axis}</th><th style="width:34%">Doel</th></tr></thead><tbody>
+        ${z.map(zo=>`<tr><td><span class="zc" style="background:${zo.color}"></span><span class="zn">${zo.name}</span> · ${zo.label}</td>
+          <td class="mono">${zo.hrLo}–${zo.hrHi}</td>
+          <td class="mono">${fmtRange(zo.spLo,zo.spHi)}</td>
+          <td class="zd">${zo.desc}</td></tr>`).join("")}
+      </tbody></table>`:`<p>Onvoldoende gegevens om zones te berekenen.</p>`}
+    </div>
+
+    <div class="rsec">
+      <h3 data-n="5">Aanbevolen trainingsverdeling</h3>
+      <p>In de trainingsopbouw wordt vaak gewerkt met het 80/20-principe: ongeveer 80% van het totale volume aan lage intensiteit (Zone 1–2) en ongeveer 20% aan hogere intensiteit (Zone 3–5). Dit zorgt voor een optimale balans tussen prikkel en herstel, beperkt het blessurerisico en laat toe om langdurig progressie te maken.</p>
+      <p>Naarmate de wedstrijd nadert blijft het volume in Zone 1–2 hoog, maar verschuift de "20%" naar meer wedstrijdspecifieke zones. Voor 5–10 km ligt de nadruk op Zone 4–5a met korte prikkels in Zone 5b–6; voor een halve marathon vooral Zone 3–4 met voldoende lange duur in Zone 2; voor een marathon veel Zone 2, aangevuld met blokken in Zone 3 rond het beoogde marathontempo.</p>
+      <p>Rustdagen, herstelweken en individuele belastbaarheid blijven bepalend. De zones bieden een objectieve kapstok, maar de concrete invulling wordt best afgestemd op trainingsgeschiedenis, blessureverleden en wedstrijdkalender.</p>
+    </div>
+
+    <div class="rsec">
+      <h3 data-n="6">Fysiologie &amp; lactaat</h3>
+      <p>Tijdens inspanning gebruikt het lichaam vooral vetten en koolhydraten als brandstof. Bij lage intensiteit domineren vetten en blijft de belasting relatief beperkt. Naarmate de intensiteit stijgt verschuift de energielevering richting koolhydraten. Daarbij ontstaat lactaat — geen afvalstof, maar een tussenproduct dat opnieuw als brandstof kan dienen. Zolang productie en afbraak in evenwicht blijven, kan de inspanning lang worden volgehouden.</p>
+      <p>De aerobe drempel (LT1) markeert de overgang waarbij de bijdrage van koolhydraten duidelijk toeneemt terwijl vetverbranding nog een belangrijke rol speelt. De anaerobe drempel (LT2) is de hoogste intensiteit waarbij lactaat nog in balans blijft; daarboven stapelt lactaat op en wordt de inspanning snel vermoeiend. Door gerichte training verschuift de curve in de tijd: minder lactaat bij dezelfde snelheid, hogere drempels en betere prestaties aan een lager blessurerisico.</p>
+    </div>
+
+    <div class="rsec">
+      <h3 data-n="7">Voedingsadvies</h3>
+      <p>Een doordachte voedingsstrategie ondersteunt prestatie, herstel en blessurepreventie. Koolhydraten vormen de kern van prestatiegerichte voeding: bij inspanningen tussen 1 en 2,5 uur wordt 30–60 g koolhydraten per uur aanbevolen, bij langere sessies (&gt;2,5–3 uur) tot 90 g per uur, bij voorkeur via meerdere transporteerbare koolhydraten (glucose-fructose) om de darmopname te verhogen en maag-darmklachten te vermijden.</p>
+      <p>In de eerste vier uur na een intensieve of dubbele trainingsdag is een snelle inname van 1–1,2 g koolhydraten/kg per uur zinvol om glycogeen aan te vullen; het combineren met eiwit (ca. 30 g snel na de training) versnelt spierherstel en ondersteunt adaptatie. Stem het plan af op individuele gewoontes, zweetverlies, warmte en type training, en zorg voor goede hydratatie.</p>
+    </div>
+
+    ${state.advice&&state.advice.trim()?`<div class="rsec"><h3 data-n="8">Advies</h3>${adviceSection()}</div>`:''}
+
+    <div class="rfoot">
+      <div>Aarzel niet mij te contacteren bij verdere vragen.<br><span class="sig">${c.name||''}</span></div>
+      <div style="text-align:right">
+        ${c.brand?`<div class="sig">${c.brand}</div>`:''}
+        ${c.email?`<div>${c.email}</div>`:''}
+        ${c.phone?`<div>${c.phone}</div>`:''}
+      </div>
+    </div>
+  </div>`;
+  $("#report").innerHTML=html;
+}
+
+/* =========================================================================
+   NIEUWE TESTEN — UI, zones & verslag (Critical Power / CSS / Critical Velocity)
+   ========================================================================= */
+function applyTestType(){
+  const t=state.testType, meta=TEST_META[t]||TEST_META.lactate;
+  $$(".ttbtn").forEach(b=>b.classList.toggle("active", b.dataset.tt===t));
+  if($("#brandSub"))$("#brandSub").textContent=meta.sub;
+  if($("#topTag"))$("#topTag").textContent=meta.name;
+  const cls={lactate:"tt-lactate",cp:"tt-cp",css:"tt-css",cv:"tt-cv",voeding:"tt-voeding"}[t]||"tt-lactate";
+  const generic=(t==="cp"||t==="css"||t==="cv");
+  $$(".tt-only").forEach(el=>{
+    let vis = el.classList.contains(cls) || (generic && el.classList.contains("tt-generic"));
+    el.style.display = vis ? "block" : "none";
+  });
+  if(t==="cp") renderCPInputs();
+  if(t==="css") renderCSSInputs();
+  if(t==="voeding") renderNutriItems();
+  if($("#protoField")) $("#protoField").style.display = (t==="voeding") ? "none" : "";
+}
+function resCard(lbl,val){ return `<div class="rescard"><div class="rlbl">${lbl}</div><div class="rval">${val}</div></div>`; }
+function renderNutriItems(){
+  const b=$("#nutriItems"); if(!b)return;
+  b.innerHTML=(state.nutri.items||[]).map((it,i)=>`
+    <div class="effrow" style="grid-template-columns:2fr 1.1fr 0.8fr auto">
+      <label class="fld"><span class="lb">Bron</span><input data-ni="${i}" data-nf="name" class="in" value="${(it.name||'').replace(/"/g,'&quot;')}" placeholder="bv. sportdrank"></label>
+      <label class="fld"><span class="lb">KH per portie (g)</span><input data-ni="${i}" data-nf="carbs" class="in mono" type="number" value="${isFinite(it.carbs)?it.carbs:''}"></label>
+      <label class="fld"><span class="lb">Aantal</span><input data-ni="${i}" data-nf="qty" class="in mono" type="number" value="${isFinite(it.qty)?it.qty:''}"></label>
+      <button class="btn sm ghost" data-nidel="${i}" style="align-self:end;margin-bottom:2px">✕</button>
+    </div>`).join("");
+  b.querySelectorAll("[data-ni]").forEach(inp=>inp.addEventListener("input",e=>{
+    const i=+e.target.dataset.ni,f=e.target.dataset.nf;
+    if(f==="name")state.nutri.items[i].name=e.target.value;
+    else state.nutri.items[i][f]=parseFloat(e.target.value.replace(",","."))||NaN;
+    renderNutri(); renderReport();
+  }));
+  b.querySelectorAll("[data-nidel]").forEach(btn=>btn.addEventListener("click",e=>{state.nutri.items.splice(+e.currentTarget.dataset.nidel,1);renderNutriItems();refreshAnalysis();}));
+}
+
+function renderCPInputs(){
+  const b=$("#cpBody"); if(!b)return;
+  b.innerHTML = state.cp.efforts.map((e,i)=>`
+    <div class="effrow">
+      <label class="fld"><span class="lb">Gem. vermogen (W)</span><input class="in mono" data-cpp="${i}" type="number" value="${isFinite(e.p)?e.p:''}" placeholder="bv. ${i===0?'360':i===1?'300':'330'}"></label>
+      <label class="fld"><span class="lb">Duur (mm:ss)</span><input class="in mono" data-cpt="${i}" value="${fmtTime(e.t)}"></label>
+      <button class="btn sm ghost" data-cpdel="${i}" ${state.cp.efforts.length<=2?'style="visibility:hidden"':''}>✕</button>
+    </div>`).join("");
+  b.querySelectorAll("[data-cpp]").forEach(inp=>inp.addEventListener("input",e=>{state.cp.efforts[+e.target.dataset.cpp].p=parseFloat(e.target.value.replace(",","."));refreshAnalysis();}));
+  b.querySelectorAll("[data-cpt]").forEach(inp=>inp.addEventListener("input",e=>{state.cp.efforts[+e.target.dataset.cpt].t=parseTime(e.target.value);refreshAnalysis();}));
+  b.querySelectorAll("[data-cpdel]").forEach(btn=>btn.addEventListener("click",e=>{state.cp.efforts.splice(+e.currentTarget.dataset.cpdel,1);renderCPInputs();refreshAnalysis();}));
+}
+function renderCSSInputs(){
+  const b=$("#cssBody"); if(!b)return;
+  b.innerHTML = state.css.trials.map((tr,i)=>`
+    <div class="effrow">
+      <label class="fld"><span class="lb">Afstand (m)</span><input class="in mono" data-cssd="${i}" type="number" value="${isFinite(tr.d)?tr.d:''}"></label>
+      <label class="fld"><span class="lb">Tijd (mm:ss)</span><input class="in mono" data-csst="${i}" value="${isFinite(tr.t)?fmtTime(tr.t):''}" placeholder="mm:ss"></label>
+      <button class="btn sm ghost" data-cssdel="${i}" ${state.css.trials.length<=2?'style="visibility:hidden"':''}>✕</button>
+    </div>`).join("");
+  b.querySelectorAll("[data-cssd]").forEach(inp=>inp.addEventListener("input",e=>{state.css.trials[+e.target.dataset.cssd].d=parseFloat(e.target.value.replace(",","."));refreshAnalysis();}));
+  b.querySelectorAll("[data-csst]").forEach(inp=>inp.addEventListener("input",e=>{state.css.trials[+e.target.dataset.csst].t=parseTime(e.target.value);refreshAnalysis();}));
+  b.querySelectorAll("[data-cssdel]").forEach(btn=>btn.addEventListener("click",e=>{state.css.trials.splice(+e.currentTarget.dataset.cssdel,1);renderCSSInputs();refreshAnalysis();}));
+}
+function genThreshold(){
+  const t=state.testType;
+  if(t==="cp")return calcCP(state.cp.efforts);
+  if(t==="css")return calcCSS(state.css.trials);
+  if(t==="cv")return calcCV(state.cv.t3k,state.cv.t5k,state.cv.dAssume);
+  return null;
+}
+function renderGeneric(){
+  const t=state.testType; if(t==="lactate")return;
+  const r=genThreshold(), R=$("#genResult"), Z=$("#genZones");
+  const titles={cp:"Critical Power & W′",css:"Critical Swim Speed",cv:"Critical Velocity — drempeltempo"};
+  if($("#genTitle"))$("#genTitle").textContent=titles[t]||"Resultaat";
+  if(!R||!Z)return;
+  if(!r){ R.innerHTML=resCard("Nog geen resultaat","—"); Z.innerHTML=`<div style="padding:16px;color:var(--muted);font-size:13px">Vul de testgegevens in om drempel en zones te berekenen.</div>`; return; }
+  if(t==="cp"){
+    R.innerHTML=resCard("Critical Power",Math.round(r.CP)+"<small> W</small>")+resCard("W′ · anaerobe capaciteit",(r.Wp/1000).toFixed(1)+"<small> kJ</small>")+resCard("≈ FTP (0,97·CP)",Math.round(r.CP*0.97)+"<small> W</small>");
+    Z.innerHTML=`<table class="zones"><thead><tr><th>Zone</th><th>Vermogen (W)</th><th>% van CP</th></tr></thead><tbody>`+
+      CP_ZONES.map(([n,lo,hi],i)=>`<tr><td class="zn"><span class="zbar" style="background:${ZCOLORS[i]}"></span>${n}</td><td class="mono">${Math.round(lo*r.CP)}${hi?"–"+Math.round(hi*r.CP):"+"}</td><td class="mono">${Math.round(lo*100)}${hi?"–"+Math.round(hi*100):"+"}%</td></tr>`).join("")+`</tbody></table>`;
+  } else if(t==="css"){
+    R.innerHTML=resCard("Critical Swim Speed",r.CSS.toFixed(3)+"<small> m/s</small>")+resCard("CSS-tempo / 100 m",fmtTime(100/r.CSS)+"<small> min</small>");
+    Z.innerHTML=`<table class="zones"><thead><tr><th>Zone</th><th>Tempo / 100 m</th><th>% van CSS</th></tr></thead><tbody>`+
+      CSS_ZONES.map(([n,lo,hi],i)=>{const ph=lo>0?fmtTime(100/(lo*r.CSS)):null;const pl=hi?fmtTime(100/(hi*r.CSS)):null;
+        const rng=!ph?("< "+pl):(!pl?(ph+"+"):(pl+"–"+ph));
+        return `<tr><td class="zn"><span class="zbar" style="background:${ZCOLORS[i]}"></span>${n}</td><td class="mono">${rng}</td><td class="mono">${Math.round(lo*100)}${hi?"–"+Math.round(hi*100):"+"}%</td></tr>`;}).join("")+`</tbody></table>`;
+  } else if(t==="cv"){
+    const Tpace=1000/r.CV, lthr=state.cv.lthr;
+    const tag=r.single?` <small style="color:var(--accent)">· geschat</small>`:"";
+    R.innerHTML=resCard("Drempeltempo (CV)"+tag,fmtTime(Tpace)+"<small> /km</small>")+resCard("Critical Velocity",r.CV.toFixed(2)+"<small> m/s</small>")+resCard(r.single?"D′ · aangenomen":"D′ · anaerobe capaciteit",Math.round(r.Dp)+"<small> m</small>");
+    const hrHead=isFinite(lthr)?`<th>HF (bpm)</th>`:"";
+    Z.innerHTML=`<table class="zones"><thead><tr><th>Zone</th><th>Tempo / km</th>${hrHead}</tr></thead><tbody>`+
+      FRIEL_PACE.map(([n,pl,ph],i)=>{const slow=pl?fmtTime(pl*Tpace):null,fast=ph?fmtTime(ph*Tpace):null;
+        const rng=!fast?(slow+" of trager"):(!slow?("< "+fast):(fast+"–"+slow));
+        let hrCell="";
+        if(isFinite(lthr)){const h=FRIEL_HR[i];hrCell=`<td class="mono">${Math.round(h[1]*lthr)}${h[2]?"–"+Math.round(h[2]*lthr):"+"}</td>`;}
+        return `<tr><td class="zn"><span class="zbar" style="background:${ZCOLORS[i]}"></span>${n}</td><td class="mono">${rng}</td>${hrCell}</tr>`;}).join("")+`</tbody></table>`;
+  }
+}
+
+function renderReportGeneric(){
+  const a=state.athlete,c=state.coach,t=state.testType,meta=TEST_META[t];
+  const r=genThreshold();
+  const basics=`<div class="basics">
+    <div class="b"><div class="k">Naam</div><div class="v">${a.name||'—'}</div></div>
+    <div class="b"><div class="k">Testdatum</div><div class="v">${fmtDate(a.date)}</div></div>
+    <div class="b"><div class="k">Sport</div><div class="v">${a.sport||meta.disc||'—'}</div></div>
+    <div class="b"><div class="k">Doel</div><div class="v">${a.goal||'—'}</div></div></div>`;
+  let resultBlock="", zonesBlock="", explain="", intro="";
+  if(!r){ resultBlock=`<p>Nog onvoldoende gegevens ingevuld om de drempel te berekenen.</p>`; }
+  if(t==="cp"){
+    intro=`Deze test bepaalt je <b>Critical Power (CP)</b> en <b>W′</b> uit twee maximale inspanningen van verschillende duur. CP is het hoogste vermogen dat je langdurig aeroob kan volhouden; W′ is de eindige hoeveelheid arbeid die je bóven CP kan leveren.`;
+    if(r){
+      resultBlock=`<div class="thr">
+        <div class="t a"><div class="tl">Critical Power</div><div class="tn">CP</div><div class="row"><span>Vermogen</span><span>${Math.round(r.CP)} W</span></div><div class="row"><span>≈ FTP</span><span>${Math.round(r.CP*0.97)} W</span></div></div>
+        <div class="t b"><div class="tl">Anaerobe capaciteit</div><div class="tn">W′</div><div class="row"><span>W′</span><span>${(r.Wp/1000).toFixed(1)} kJ</span></div></div>
+      </div>
+      <p style="margin-top:12px">Berekend uit ${state.cp.efforts.filter(e=>isFinite(e.p)&&isFinite(e.t)).map(e=>Math.round(e.t/60)+"′ @ "+Math.round(e.p)+" W").join(" en ")}, via het 2-parametermodel W = CP·t + W′.</p>`;
+      zonesBlock=`<table class="rzones"><thead><tr><th style="width:26%">Zone</th><th>Vermogen (W)</th><th>% van CP</th><th style="width:42%">Doel</th></tr></thead><tbody>`+
+        CP_ZONES.map(([n,lo,hi],i)=>`<tr><td><span class="zc" style="background:${ZCOLORS[i]}"></span><span class="zn">${n}</span></td><td class="mono">${Math.round(lo*r.CP)}${hi?"–"+Math.round(hi*r.CP):"+"}</td><td class="mono">${Math.round(lo*100)}${hi?"–"+Math.round(hi*100):"+"}%</td><td class="zd">${CP_DESC[i]}</td></tr>`).join("")+`</tbody></table>`;
+    }
+    explain=`<p><b>W′ (anaerobe werkcapaciteit)</b> reflecteert je vermogen om kort boven CP te presteren — sprints, demarrages, beklimmingen. <b>CP</b> ligt doorgaans net boven FTP. De vermogenszones hierboven zijn uitgedrukt als percentage van CP en vormen de basis voor je trainingsprikkels.</p>`;
+  } else if(t==="css"){
+    intro=`Deze test bepaalt je <b>Critical Swim Speed (CSS)</b>: de duurzame zwemsnelheid die je continu kan volhouden zonder te vertragen — het zwem-equivalent van je drempel/FTP. CSS wordt berekend uit twee (of meer) maximale time trials via het afstand-tijdmodel.`;
+    if(r){
+      resultBlock=`<div class="thr">
+        <div class="t a"><div class="tl">Critical Swim Speed</div><div class="tn">CSS</div><div class="row"><span>Snelheid</span><span>${r.CSS.toFixed(3)} m/s</span></div><div class="row"><span>Tempo</span><span>${fmtTime(100/r.CSS)} /100 m</span></div></div>
+      </div>
+      <p style="margin-top:12px">Berekend uit ${state.css.trials.filter(e=>isFinite(e.d)&&isFinite(e.t)).map(e=>e.d+" m in "+fmtTime(e.t)).join(" en ")}.</p>`;
+      zonesBlock=`<table class="rzones"><thead><tr><th style="width:26%">Zone</th><th>Tempo / 100 m</th><th>% CSS</th><th style="width:42%">Doel</th></tr></thead><tbody>`+
+        CSS_ZONES.map(([n,lo,hi],i)=>{const ph=lo>0?fmtTime(100/(lo*r.CSS)):null,pl=hi?fmtTime(100/(hi*r.CSS)):null;const rng=!ph?("< "+pl):(!pl?(ph+"+"):(pl+"–"+ph));
+          return `<tr><td><span class="zc" style="background:${ZCOLORS[i]}"></span><span class="zn">${n}</span></td><td class="mono">${rng}</td><td class="mono">${Math.round(lo*100)}${hi?"–"+Math.round(hi*100):"+"}%</td><td class="zd">${CSS_DESC[i]}</td></tr>`;}).join("")+`</tbody></table>`;
+    }
+    explain=`<p>Zwem je threshold-sets rond je CSS-tempo (Zone 3). Een klassiek voorbeeld is 10 × 100 m op CSS-tempo met korte rust. Hertest elke 4–6 weken om progressie op te volgen.</p>`;
+  } else if(t==="cv"){
+    intro=`Deze test bepaalt je <b>Critical Velocity (CV)</b> uit een 3 km en/of 5 km tijdrit. CV benadert je duurzame drempelsnelheid en dient als <i>Functional Threshold Pace</i>. De trainingszones zijn opgebouwd volgens de methode van Joe Friel.`;
+    if(r){
+      const Tpace=1000/r.CV, lthr=state.cv.lthr;
+      const parts=[]; if(isFinite(state.cv.t3k))parts.push("3 km in "+fmtTime(state.cv.t3k)); if(isFinite(state.cv.t5k))parts.push("5 km in "+fmtTime(state.cv.t5k));
+      const calcLine = r.single
+        ? `Geschat uit ${parts.join("")}, via CV = (afstand − D′) / tijd met een aangenomen D′ van ${Math.round(r.Dp)} m. Een tweede afstand geeft een nauwkeuriger, gemeten resultaat.`
+        : `Berekend uit ${parts.join(" en ")}, via CV = 2000 / (t₅ₖ − t₃ₖ).`;
+      resultBlock=`<div class="thr">
+        <div class="t a"><div class="tl">Drempeltempo${r.single?" · geschat":""}</div><div class="tn">CV · FTPa</div><div class="row"><span>Tempo</span><span>${fmtTime(Tpace)} /km</span></div><div class="row"><span>Snelheid</span><span>${r.CV.toFixed(2)} m/s</span></div>${isFinite(lthr)?`<div class="row"><span>LTHR</span><span>${Math.round(lthr)} bpm</span></div>`:''}</div>
+        <div class="t b"><div class="tl">${r.single?"Aangenomen":"Anaerobe capaciteit"}</div><div class="tn">D′</div><div class="row"><span>D′</span><span>${Math.round(r.Dp)} m</span></div></div>
+      </div>
+      <p style="margin-top:12px">${calcLine}</p>`;
+      const hrHead=isFinite(lthr)?`<th>HF (bpm)</th>`:"";
+      zonesBlock=`<table class="rzones"><thead><tr><th style="width:24%">Zone</th><th>Tempo / km</th>${hrHead}<th style="width:42%">Doel</th></tr></thead><tbody>`+
+        FRIEL_PACE.map(([n,pl,ph],i)=>{const slow=pl?fmtTime(pl*Tpace):null,fast=ph?fmtTime(ph*Tpace):null;const rng=!fast?(slow+" of trager"):(!slow?("< "+fast):(fast+"–"+slow));
+          let hrCell=""; if(isFinite(lthr)){const h=FRIEL_HR[i];hrCell=`<td class="mono">${Math.round(h[1]*lthr)}${h[2]?"–"+Math.round(h[2]*lthr):"+"}</td>`;}
+          return `<tr><td><span class="zc" style="background:${ZCOLORS[i]}"></span><span class="zn">${n}</span></td><td class="mono">${rng}</td>${hrCell}<td class="zd">${FRIEL_DESC[i]}</td></tr>`;}).join("")+`</tbody></table>`;
+    }
+    explain=`<p>De pace-zones zijn veelvouden van je drempeltempo volgens Joe Friel; de hartslagzones zijn percentages van je LTHR. <b>Let op:</b> deze test benadert de drempel via het critical-velocity-model — Friels eigen kanonieke test is een 30-minuten tijdrit. Beide geven een bruikbare FTPa. Bij één afstand is het resultaat een schatting; twee afstanden geven een gemeten drempel.</p>`;
+  }
+  const fysio = ({
+    cp:`Vermogen op de fiets komt van twee energiesystemen. Je <b>aerobe systeem</b> levert duurzaam vermogen tot rond je Critical Power; daarboven springt je <b>anaerobe capaciteit (W′)</b> bij voor korte, explosieve inspanningen zoals sprints, demarrages en steile beklimmingen. CP weerspiegelt je duurzame drempel, W′ je eindige reserve erboven. Rustig rijden onder CP bouwt je aerobe basis; herhaalde inspanningen rond en net boven CP verhogen zowel CP als W′.`,
+    css:`Zwemsnelheid steunt vooral op je <b>aerobe uithouding</b>: je Critical Swim Speed is de snelheid die je lang kan aanhouden zonder te vertragen, bepaald door hoe efficiënt je zuurstof gebruikt en lactaat verwerkt. Boven CSS stapelt vermoeidheid snel op. Naast een sterke aerobe basis is <b>techniek</b> hier doorslaggevend — vlotter door het water bewegen verlaagt de energiekost van elke slag. Drempelsets rond je CSS-tempo trainen net dat duurzame vermogen.`,
+    cv:`Loopsnelheid ontstaat uit een samenspel van je <b>aerobe systeem</b> (duurzaam, tot rond je drempeltempo / Critical Velocity) en je <b>anaerobe reserve (D′)</b> voor kortere, snellere inspanningen erboven. CV benadert de hoogste snelheid die je nog grotendeels aeroob volhoudt. Rustige duurkilometers bouwen de aerobe basis; intervallen rond en net boven CV verleggen geleidelijk je drempel.`
+  })[t]||"";
+  const voeding1=`Een doordachte voedingsstrategie ondersteunt prestatie, herstel en blessurepreventie. Koolhydraten vormen de kern van prestatiegerichte voeding: bij inspanningen tussen 1 en 2,5 uur wordt 30–60 g koolhydraten per uur aanbevolen, bij langere sessies (&gt;2,5–3 uur) tot 90 g per uur, bij voorkeur via meerdere transporteerbare koolhydraten (glucose-fructose) om de darmopname te verhogen en maag-darmklachten te vermijden.`;
+  const voeding2=`In de eerste vier uur na een intensieve of dubbele trainingsdag is een snelle inname van 1–1,2 g koolhydraten/kg per uur zinvol om glycogeen aan te vullen; het combineren met eiwit (ca. 30 g snel na de training) versnelt spierherstel en ondersteunt adaptatie. Stem het plan af op individuele gewoontes, zweetverlies, warmte en type training, en zorg voor goede hydratatie.`;
+  const html=coverPage(meta.name, meta.disc)+`<div class="rpage">
+    <div class="rhead"><div class="rt"><small>${meta.disc} · Rapport</small>${meta.name}</div><div class="rr"><img src="${state.logo}" alt="logo"><span class="rdisc">${meta.disc}</span></div></div>
+    <div class="rsec"><h3 data-n="1">Basisgegevens</h3><p>${intro}</p>${basics}</div>
+    <div class="rsec"><h3 data-n="2">Resultaat</h3>${resultBlock}${explain}</div>
+    <div class="rsec"><h3 data-n="3">Trainingszones</h3>${zonesBlock||`<p>Onvoldoende gegevens om zones te berekenen.</p>`}</div>
+    ${fysio?`<div class="rsec"><h3 data-n="4">Fysiologie</h3><p>${fysio}</p></div>`:''}
+    <div class="rsec"><h3 data-n="5">Trainingsverdeling</h3><p>Bouw je training op volgens het 80/20-principe: ongeveer 80% van het volume in de lage zones en 20% in de hogere zones. Dit geeft een gunstige balans tussen prikkel en herstel en beperkt het overbelastingsrisico. Naarmate een doel nadert verschuift de intensieve 20% naar meer wedstrijdspecifieke zones.</p></div>
+    <div class="rsec"><h3 data-n="6">Voedingsadvies</h3><p>${voeding1}</p><p>${voeding2}</p></div>
+    ${state.advice&&state.advice.trim()?`<div class="rsec"><h3 data-n="7">Advies</h3>${adviceSection()}</div>`:''}
+    <div class="rfoot"><div>Aarzel niet mij te contacteren bij verdere vragen.<br><span class="sig">${c.name||''}</span></div>
+      <div style="text-align:right">${c.brand?`<div class="sig">${c.brand}</div>`:''}${c.email?`<div>${c.email}</div>`:''}${c.phone?`<div>${c.phone}</div>`:''}</div></div>
+  </div>`;
+  $("#report").innerHTML=html;
+}
+
+/* zone-omschrijvingen voor de nieuwe testen */
+const CP_DESC=["Actief herstel; heel licht.","Aerobe basis; lange duurritten.","Stevige duur, net onder wedstrijdtempo.","Rond drempel; verhoogt duurzaam vermogen.","VO2max-intervallen; maximale zuurstofopname.","Anaerobe capaciteit; korte, harde inspanningen.","Neuromusculair; sprints en pieken."];
+const CSS_DESC=["Herstel en techniek; heel rustig.","Aerobe basis; lange, rustige afstanden.","Drempel; sets rond CSS-tempo.","VO2max; kortere, intense herhalingen.","Sprint; maximale snelheid over korte afstand."];
+const FRIEL_DESC=["Actief herstel; heel licht.","Extensieve duur; aerobe basis.","Intensieve duur / tempo.","Net onder drempel; duurzaam wedstrijdtempo.","Rond drempel (LT2).","VO2max; intensieve intervallen.","Anaeroob; korte, maximale prikkels."];
+
+let _dragWhich=null;
+function bindChartDrag(){
+  const host=$("#liveChart"); if(!host)return;
+  const svg=host.querySelector("svg"); if(!svg||!svg.dataset||!isFinite(+svg.dataset.xmin))return;
+  const speedAt=cx=>{
+    const cur=host.querySelector("svg"); if(!cur)return NaN;
+    const r=cur.getBoundingClientRect(); if(!(r.width>0))return NaN;
+    const d=cur.dataset;
+    const ix=(cx-r.left)*(+d.w/r.width);
+    const v=(+d.xmin)+(ix-(+d.ml))/(+d.iw)*((+d.xmax)-(+d.xmin));
+    return Math.max(+d.xd0,Math.min(+d.xd1,v));
+  };
+  svg.querySelectorAll("[data-drag]").forEach(el=>{
+    el.addEventListener("pointerdown",ev=>{
+      ev.preventDefault();
+      _dragWhich=el.dataset.drag;
+      const move=e=>{ if(!_dragWhich)return; const v=speedAt(e.clientX); if(!isFinite(v))return; state[_dragWhich].method="manual"; state[_dragWhich].manualSpeed=Math.round(v*100)/100; refreshAnalysis(); };
+      const up=()=>{ _dragWhich=null; window.removeEventListener("pointermove",move); window.removeEventListener("pointerup",up); window.removeEventListener("pointercancel",up); };
+      window.addEventListener("pointermove",move);
+      window.addEventListener("pointerup",up);
+      window.addEventListener("pointercancel",up);
+    });
+  });
+}
+
+function refreshAnalysis(){
+  if(state.testType==="voeding"){ renderNutri(); renderReport(); return; }
+  if(state.testType!=="lactate"){ renderGeneric(); renderReport(); return; }
+  $("#liveChart").innerHTML=chartSVG(760,360);
+  bindChartDrag();
+  renderMethods();
+  renderMaxInputs();
+  renderZonesPreview();
+  renderReport();
+}
+
+/* =========================================================================
+   BINDINGS
+   ========================================================================= */
+function applyLogo(){ $("#brandLogo").src=state.logo; $("#logoPrev").src=state.logo; }
+function applyBrandName(){ $("#brandName").textContent=state.coach.brand||"—"; }
+
+function bindInputs(){
+  const map=[["#coachBrand","coach","brand"],["#coachName","coach","name"],["#coachEmail","coach","email"],["#coachPhone","coach","phone"],
+    ["#aName","athlete","name"],["#aDate","athlete","date"],["#aSport","athlete","sport"],["#aGoal","athlete","goal"],["#aProto","athlete","proto"]];
+  map.forEach(([sel,o,k])=>{const el=$(sel);el.value=state[o][k]||"";el.addEventListener("input",()=>{state[o][k]=el.value;if(k==="brand")applyBrandName();renderReport();});});
+  $("#apiKey").addEventListener("input",e=>state.apiKey=e.target.value.trim());
+  $("#maxHr").addEventListener("input",e=>{state.max.hr=parseFloat(e.target.value)||null;refreshAnalysis();});
+  $("#maxSpeed").addEventListener("input",e=>{const s=LU().parse(e.target.value.trim());state.max.speed=s||null;refreshAnalysis();});
+  $("#lt1ManualSpeed").addEventListener("input",e=>{state.lt1.manualSpeed=LU().parse(e.target.value.trim())||NaN;refreshAnalysis();});
+  $("#lt2ManualSpeed").addEventListener("input",e=>{state.lt2.manualSpeed=LU().parse(e.target.value.trim())||NaN;refreshAnalysis();});
+  $("#addRow").addEventListener("click",()=>{state.points.push({d:NaN,t:NaN,v:NaN,hr:NaN,la:NaN});renderDataTable();});
+  $("#loadExample").addEventListener("click",()=>{state.points=(state.lactSport==="bike"?EXAMPLE_BIKE:EXAMPLE).map(p=>({...p}));renderDataTable();refreshAnalysis();toast("Voorbeelddata geladen");});
+  $$("#lactSportSeg button").forEach(b=>b.addEventListener("click",()=>{state.lactSport=b.dataset.sport;applyLactSport();renderDataTable();refreshAnalysis();}));
+  // wedstrijdvoeding
+  if($("#nRace")){
+    $("#nRace").innerHTML=Object.entries(RACES).map(([k,r])=>`<option value="${k}">${r.label}</option>`).join("");
+    const syncSwim=()=>{const R=RACES[state.nutri.race]||RACES.tri_olympic;const w=$("#nSwimWrap");if(w)w.style.display=R.swim?"block":"none";};
+    const fillNutri=()=>{ $("#nRace").value=state.nutri.race; $("#nTotal").value=hhmm(state.nutri.total); $("#nSwim").value=hhmm(state.nutri.swim); $("#nWeight").value=isFinite(state.nutri.weightKg)?state.nutri.weightKg:""; $("#nGel").value=isFinite(state.nutri.gelGrams)?state.nutri.gelGrams:""; $("#nTemp").value=isFinite(state.nutri.tempC)?state.nutri.tempC:""; $$("#nLevelSeg button").forEach(x=>x.classList.toggle("active", x.dataset.lvl===(state.nutri.elite?"elite":"rec"))); syncSwim(); };
+    fillNutri();
+    $("#nRace").addEventListener("change",e=>{ state.nutri.race=e.target.value; const R=RACES[state.nutri.race]; state.nutri.total=R.defTotal; if(R.swim&&R.defSwim)state.nutri.swim=R.defSwim; $("#nTotal").value=hhmm(state.nutri.total); $("#nSwim").value=hhmm(state.nutri.swim); syncSwim(); renderNutri(); renderReport(); });
+    $("#nTotal").addEventListener("input",e=>{state.nutri.total=parseHM(e.target.value);renderNutri();renderReport();});
+    $("#nSwim").addEventListener("input",e=>{state.nutri.swim=parseHM(e.target.value);renderNutri();renderReport();});
+    $("#nWeight").addEventListener("input",e=>{state.nutri.weightKg=parseFloat(e.target.value)||NaN;renderNutri();renderReport();});
+    $("#nGel").addEventListener("input",e=>{state.nutri.gelGrams=parseFloat(e.target.value)||NaN;renderNutri();renderReport();});
+    $("#nTemp").addEventListener("input",e=>{state.nutri.tempC=parseFloat(e.target.value.replace(",","."));renderNutri();renderReport();});
+    $("#nAddItem").addEventListener("click",()=>{state.nutri.items.push({name:"",carbs:NaN,qty:1});renderNutriItems();renderNutri();renderReport();});
+    $$("#nLevelSeg button").forEach(b=>b.addEventListener("click",()=>{state.nutri.elite=(b.dataset.lvl==="elite");$$("#nLevelSeg button").forEach(x=>x.classList.toggle("active",x.dataset.lvl===b.dataset.lvl));renderNutri();renderReport();}));
+  }
+  // test type
+  $$(".ttbtn").forEach(b=>b.addEventListener("click",()=>{state.testType=b.dataset.tt;applyTestType();refreshAnalysis();}));
+  // critical velocity inputs
+  $("#cvT3").addEventListener("input",e=>{state.cv.t3k=parseTime(e.target.value);refreshAnalysis();});
+  $("#cvT5").addEventListener("input",e=>{state.cv.t5k=parseTime(e.target.value);refreshAnalysis();});
+  $("#cvLthr").addEventListener("input",e=>{state.cv.lthr=parseFloat(e.target.value)||NaN;refreshAnalysis();});
+  $("#cvDassume").addEventListener("input",e=>{const v=parseFloat(e.target.value);state.cv.dAssume=isFinite(v)?v:200;refreshAnalysis();});
+  // css add/reset
+  $("#cssAdd").addEventListener("click",()=>{state.css.trials.push({d:NaN,t:NaN});renderCSSInputs();refreshAnalysis();});
+  $("#cssReset").addEventListener("click",()=>{state.css.trials=[{d:400,t:NaN},{d:200,t:NaN}];renderCSSInputs();refreshAnalysis();});
+  // cp add/reset
+  $("#cpAdd").addEventListener("click",()=>{if(state.cp.efforts.length<4){state.cp.efforts.splice(1,0,{p:NaN,t:300});renderCPInputs();refreshAnalysis();}});
+  $("#cpReset").addEventListener("click",()=>{state.cp.efforts=[{p:NaN,t:180},{p:NaN,t:720}];renderCPInputs();refreshAnalysis();});
+}
+
+/* steps */
+function goStep(n){
+  $$(".panel").forEach(p=>p.classList.toggle("hide",+p.dataset.panel!==n));
+  $$(".step").forEach(s=>s.classList.toggle("active",+s.dataset.step===n));
+  if(n>=2)refreshAnalysis();
+  window.scrollTo({top:0,behavior:"smooth"});
+}
+$$(".step").forEach(b=>b.addEventListener("click",()=>goStep(+b.dataset.step)));
+document.addEventListener("click",e=>{const g=e.target.closest("[data-goto]");if(g)goStep(+g.dataset.goto);});
+
+/* logo swap */
+$("#logoBtn").addEventListener("click",()=>$("#logoInput").click());
+$("#logoInput").addEventListener("change",e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{state.logo=r.result;applyLogo();renderReport();toast("Logo bijgewerkt");};r.readAsDataURL(f);});
+$("#logoReset").addEventListener("click",()=>{state.logo=DEFAULT_LOGO;applyLogo();renderReport();});
+
+/* photo + OCR */
+let photoData=null;
+function setPhoto(dataUrl){photoData=dataUrl;$("#thumb").src=dataUrl;$("#thumbWrap").classList.remove("hide");$("#ocrMsg").textContent="";}
+$("#drop").addEventListener("click",()=>$("#photoInput").click());
+$("#photoInput").addEventListener("change",e=>{const f=e.target.files[0];if(f)fileToUrl(f);});
+["dragover","dragenter"].forEach(ev=>$("#drop").addEventListener(ev,e=>{e.preventDefault();$("#drop").classList.add("over");}));
+["dragleave","drop"].forEach(ev=>$("#drop").addEventListener(ev,e=>{e.preventDefault();$("#drop").classList.remove("over");}));
+$("#drop").addEventListener("drop",e=>{const f=e.dataTransfer.files[0];if(f)fileToUrl(f);});
+$("#clearPhoto").addEventListener("click",()=>{photoData=null;$("#thumbWrap").classList.add("hide");$("#photoInput").value="";});
+function fileToUrl(f){const r=new FileReader();r.onload=()=>setPhoto(r.result);r.readAsDataURL(f);}
+
+$("#ocrBtn").addEventListener("click",runOCR);
+async function runOCR(){
+  if(!photoData)return;
+  const msg=$("#ocrMsg");
+  if(!state.apiKey){
+    msg.style.color="var(--accent-ink)";
+    msg.textContent="Foto-analyse heeft je eigen Anthropic API-sleutel nodig — vul die hieronder in (sk-ant-…). De meetpunten handmatig invullen kan uiteraard altijd.";
+    const d=$("#apiWrap"); if(d) d.open=true;
+    return;
+  }
+  const btn=$("#ocrBtn"),lbl=$("#ocrLabel");
+  btn.disabled=true;lbl.innerHTML=`<span class="spinner"></span> Bezig met analyseren…`;msg.textContent="";
+  try{
+    const m=photoData.match(/^data:(image\/[a-z]+);base64,(.*)$/i);
+    if(!m)throw new Error("Ongeldig beeldformaat");
+    const media=m[1], b64=m[2];
+    const bike = state.lactSport==="bike";
+    const prompt = bike
+      ? `Je krijgt een foto van een handgeschreven kladblad van een lactaattest op de fiets (traptest, bv. 5-minutenprotocol). Lees alle trappen. Elke trap heeft een tijd/trapduur (mm:ss, bv. 5:00), een vermogen (watt), een hartslag (bpm) en een lactaatwaarde (mmol/l). Geef UITSLUITEND geldige JSON terug, zonder uitleg of markdown: {"points":[{"time":"<mm:ss of null>","power":<watt of null>,"hr":<bpm of null>,"lactate":<mmol/l of null>}],"name":<naam of null>,"date":<"YYYY-MM-DD" of null>}. Gebruik punt als decimaalteken.`
+      : `Je krijgt een foto van een handgeschreven kladblad van een looptest (lactaat-traptest). Lees alle trappen. Elke trap heeft doorgaans een afstand (in meter, bv. 1000 of 1200) en een tijd (mm:ss), plus een hartslag (bpm) en een lactaatwaarde (mmol/l). Staat er in plaats van afstand+tijd een tempo (min/km) of snelheid (km/u), geef dat dan ook mee. Geef UITSLUITEND geldige JSON terug, zonder uitleg of markdown: {"points":[{"distance":<meter of null>,"time":"<mm:ss of null>","pace":"<mm:ss min/km of null>","speed":<km/u of null>,"hr":<bpm of null>,"lactate":<mmol/l of null>}],"name":<naam of null>,"date":<"YYYY-MM-DD" of null>}. Gebruik punt als decimaalteken.`;
+    // Directe browser-call naar de Anthropic-API met je eigen sleutel.
+    // OCR_MODEL is een vision-model; pas het aan als je account een ander model-ID gebruikt.
+    const OCR_MODEL="claude-sonnet-5";
+    const headers={
+      "Content-Type":"application/json",
+      "x-api-key":state.apiKey,
+      "anthropic-version":"2023-06-01",
+      "anthropic-dangerous-direct-browser-access":"true"
+    };
+    const res=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers,body:JSON.stringify({
+      model:OCR_MODEL,max_tokens:1200,
+      messages:[{role:"user",content:[{type:"image",source:{type:"base64",media_type:media,data:b64}},{type:"text",text:prompt}]}]
+    })});
+    if(!res.ok){const t=await res.text();throw new Error("API "+res.status+" — "+t.slice(0,120));}
+    const data=await res.json();
+    let txt=(data.content||[]).map(x=>x.type==="text"?x.text:"").join("").trim().replace(/```json|```/g,"").trim();
+    const parsed=JSON.parse(txt);
+    if(parsed.points&&parsed.points.length){
+      state.points=parsed.points.map(p=>{
+        const hr=(p.hr!=null&&isFinite(p.hr))?+p.hr:NaN, la=(p.lactate!=null&&isFinite(p.lactate))?+p.lactate:NaN;
+        if(bike){ return {t:(p.time?parseTime(p.time):NaN), v:(p.power!=null&&isFinite(p.power))?+p.power:NaN, hr, la}; }
+        const d=(p.distance!=null&&isFinite(p.distance))?+p.distance:NaN;
+        const t=p.time?parseTime(p.time):NaN;
+        let v=NaN;
+        if(isFinite(d)&&isFinite(t)&&t>0) v=(d/1000)/(t/3600);
+        else if(p.speed!=null&&isFinite(p.speed)) v=+p.speed;
+        else if(p.pace) v=paceToSpeed(p.pace)||NaN;
+        return {d,t,v,hr,la};
+      }).filter(p=>isFinite(p.v)||isFinite(p.hr)||isFinite(p.la));
+      if(parsed.name&&!state.athlete.name){state.athlete.name=parsed.name;$("#aName").value=parsed.name;}
+      if(parsed.date){state.athlete.date=parsed.date;$("#aDate").value=parsed.date;}
+      if(parsed.sport&&!state.athlete.sport){state.athlete.sport=parsed.sport;$("#aSport").value=parsed.sport;}
+      renderDataTable();refreshAnalysis();
+      msg.style.color="var(--ok)";msg.textContent=`✓ ${state.points.length} meetpunten ingelezen. Controleer de tabel hieronder.`;
+      toast("Meetpunten ingelezen");
+    }else{msg.style.color="var(--muted)";msg.textContent="Geen meetpunten herkend. Probeer een scherpere foto of vul handmatig in.";}
+  }catch(err){
+    msg.style.color="var(--accent-ink)";
+    msg.textContent="Analyse mislukt: "+err.message+" — controleer je API-sleutel en internetverbinding, of vul de meetpunten handmatig in.";
+  }finally{btn.disabled=false;lbl.textContent="Analyse opnieuw";}
+}
+
+/* print + project save/load */
+$("#printBtn").addEventListener("click",()=>window.print());
+$("#saveProj").addEventListener("click",()=>{
+  const blob=new Blob([JSON.stringify(state,null,2)],{type:"application/json"});
+  const url=URL.createObjectURL(blob),a=document.createElement("a");
+  a.href=url;a.download=(state.athlete.name||"lactaattest").replace(/\s+/g,"_")+".json";a.click();URL.revokeObjectURL(url);
+});
+$("#loadProjBtn").addEventListener("click",()=>$("#loadProjInput").click());
+$("#loadProjInput").addEventListener("change",e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{try{Object.assign(state,JSON.parse(r.result));bootFromState();toast("Project geladen");}catch(err){toast("Kon project niet laden",true);}};r.readAsText(f);});
+
+function bootFromState(){
+  applyLogo();applyBrandName();
+  [["#coachBrand","coach","brand"],["#coachName","coach","name"],["#coachEmail","coach","email"],["#coachPhone","coach","phone"],["#aName","athlete","name"],["#aDate","athlete","date"],["#aSport","athlete","sport"],["#aGoal","athlete","goal"],["#aProto","athlete","proto"]].forEach(([sel,o,k])=>{if($(sel))$(sel).value=state[o][k]||"";});
+  if($("#adviceText"))$("#adviceText").value=state.advice||"";
+  if($("#nRace")&&state.nutri){ $("#nRace").value=state.nutri.race; $("#nTotal").value=hhmm(state.nutri.total); $("#nSwim").value=hhmm(state.nutri.swim); $("#nWeight").value=isFinite(state.nutri.weightKg)?state.nutri.weightKg:""; $("#nGel").value=isFinite(state.nutri.gelGrams)?state.nutri.gelGrams:""; $("#nTemp").value=isFinite(state.nutri.tempC)?state.nutri.tempC:""; }
+  renderNutriItems();
+  applyLactSport();
+  if($("#cvT3"))$("#cvT3").value=isFinite(state.cv.t3k)?fmtTime(state.cv.t3k):"";
+  if($("#cvT5"))$("#cvT5").value=isFinite(state.cv.t5k)?fmtTime(state.cv.t5k):"";
+  if($("#cvLthr"))$("#cvLthr").value=isFinite(state.cv.lthr)?state.cv.lthr:"";
+  if($("#cvDassume"))$("#cvDassume").value=(isFinite(state.cv.dAssume)&&state.cv.dAssume!==200)?state.cv.dAssume:"";
+  applyTestType();
+  renderDataTable();refreshAnalysis();
+}
+
+/* init */
+/* Diep-link: open rechtstreeks in een testtype via de URL-hash, bv. index.html#voeding.
+   Bij een geldige hash wordt de test-keuze verborgen, zodat je die pagina als een apart
+   onderdeel van je site kunt gebruiken (bv. een 'Voedingsplan'-pagina). */
+function applyDeepLink(){
+  const h=(location.hash||"").replace(/^#/,"").toLowerCase();
+  const ok=["lactate","cp","css","cv","voeding"].includes(h);
+  if(ok){ state.testType=h; }
+  if($("#testTypeCard")) $("#testTypeCard").style.display = ok ? "none" : "";
+  return ok;
+}
+(function(){ try{ applyDeepLink(); }catch(e){} })();
+window.addEventListener("hashchange",()=>{ if(applyDeepLink()){ applyTestType(); refreshAnalysis(); } });
+applyLogo();applyBrandName();bindInputs();applyTestType();applyLactSport();renderDataTable();initSpeech();refreshAnalysis();
+</script>
+</body>
+</html>
