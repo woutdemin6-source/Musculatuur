@@ -6,28 +6,37 @@
 <title>Lactaat Rapport Generator</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=Poppins:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
 <style>
+/* Huisstijl De Musculatuur — zelfde tokens als de Streamlit-tools (crème/perzik,
+   bordeaux serif koppen, saliegroen als actiekleur, donkerbruin voor donkere vlakken).
+   Bewust NIET meegenomen in de huisstijl: de zonekleuren (--z1..--z6) en de hartslag-
+   vs. lactaatkleur. Die dragen betekenis in de grafiek en het verslag — bordeaux en
+   saliegroen door elkaar zouden een verslag onleesbaar maken. */
 :root{
-  --bg:#E9ECEF; --surface:#ffffff; --surface-2:#F6F8FA;
-  --ink:#131820; --muted:#697384; --faint:#98A2B3;
-  --line:#E3E7ED; --line-strong:#D3D9E0;
-  --graphite:#1B222B;
-  --accent:#E23744;          /* action / lactate energy */
-  --accent-ink:#B21F2C;
-  --hr:#2563EB;              /* heart rate */
-  --la:#E23744;             /* lactate */
+  --bg:#FBF6F2; --surface:#ffffff; --surface-2:#F7F0EA;
+  --ink:#3B2820; --muted:#6E7B99; --faint:#A99A8C;
+  --line:#EDE2D8; --line-strong:#DCCCBE;
+  --graphite:#3B2820;        /* donkerbruin, zoals de sidebar van de webapp */
+  --accent:#5B1F2C;          /* bordeaux */
+  --accent-ink:#45161F;
+  --green:#6FA98A;           /* saliegroen, actiekleur */
+  --green-dark:#5C9179;
+  --hr:#2563EB;              /* hartslag — functioneel, blijft blauw */
+  --la:#E23744;             /* lactaat — functioneel; moet gelijk blijven aan de vaste
+                               hex in de SVG-grafiek en de legende (> LT2), anders zeggen
+                               curve en legende iets anders */
   --ok:#16a34a;
   --z1:#3B82F6; --z2:#22B8CF; --z3:#22C55E; --z4:#EAB308; --z5a:#F97316; --z5b:#EF4444; --z6:#B91C1C;
-  --radius:14px; --shadow:0 1px 2px rgba(16,24,40,.04),0 8px 28px -12px rgba(16,24,40,.16);
+  --radius:14px; --shadow:0 2px 10px rgba(59,40,32,.08),0 8px 28px -12px rgba(59,40,32,.14);
   --mono:'Space Mono',ui-monospace,monospace;
-  --disp:'Space Grotesk',system-ui,sans-serif;
-  --body:'Inter',system-ui,sans-serif;
+  --disp:'Playfair Display',Georgia,serif;
+  --body:'Poppins',system-ui,sans-serif;
 }
 *{box-sizing:border-box}
 html,body{margin:0;padding:0}
 body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:15px;line-height:1.5;-webkit-font-smoothing:antialiased}
-h1,h2,h3,h4{font-family:var(--disp);margin:0;letter-spacing:-.01em}
+h1,h2,h3,h4{font-family:var(--disp);margin:0;letter-spacing:-.01em;color:var(--accent)}
 button{font-family:var(--body);cursor:pointer}
 input,select,textarea{font-family:var(--body)}
 .mono{font-family:var(--mono)}
@@ -64,14 +73,15 @@ input,select,textarea{font-family:var(--body)}
 label.fld{display:block}
 label.fld .lb{font-size:12px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px;display:block}
 input.in,select.in,textarea.in{width:100%;padding:10px 12px;border:1px solid var(--line-strong);border-radius:9px;background:var(--surface);font-size:14.5px;color:var(--ink);transition:.15s}
-input.in:focus,select.in:focus,textarea.in:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(226,55,68,.12)}
+input.in:focus,select.in:focus,textarea.in:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(91,31,44,.12)}
 textarea.in{resize:vertical;min-height:64px;line-height:1.5}
 
 /* buttons */
 .btn{display:inline-flex;align-items:center;gap:8px;padding:10px 16px;border-radius:10px;border:1px solid var(--line-strong);background:var(--surface);color:var(--ink);font-weight:600;font-size:14px;transition:.15s}
 .btn:hover{border-color:var(--faint);background:var(--surface-2)}
-.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
-.btn.primary:hover{background:var(--accent-ink);border-color:var(--accent-ink)}
+/* Hoofdactie in saliegroen, zoals de knoppen in de rest van de tool */
+.btn.primary{background:var(--green);border-color:var(--green);color:#fff}
+.btn.primary:hover{background:var(--green-dark);border-color:var(--green-dark)}
 .btn.dark{background:var(--graphite);border-color:var(--graphite);color:#fff}
 .btn.dark:hover{opacity:.9}
 .btn.ghost{background:transparent;border-color:transparent;color:var(--muted)}
@@ -93,12 +103,12 @@ table.data td{padding:7px 10px;border-bottom:1px solid var(--line)}
 table.data tr:last-child td{border-bottom:none}
 table.data input{width:100%;border:1px solid transparent;background:transparent;padding:8px 10px;border-radius:7px;font-family:var(--mono);font-size:14px;text-align:center}
 table.data input:hover{background:var(--surface-2)}
-table.data input:focus{outline:none;border-color:var(--accent);background:#fff;box-shadow:0 0 0 3px rgba(226,55,68,.1)}
+table.data input:focus{outline:none;border-color:var(--accent);background:#fff;box-shadow:0 0 0 3px rgba(91,31,44,.1)}
 table.data td.idx{font-family:var(--mono);color:var(--faint);font-size:12px;text-align:center;width:36px}
 table.data td.rm{width:40px;text-align:center}
 table.data td.calc{text-align:center;font-family:var(--mono);font-size:14px;color:var(--hr);font-weight:600;background:var(--surface-2)}
 .iconbtn{width:28px;height:28px;border-radius:7px;border:1px solid transparent;background:transparent;color:var(--faint);display:grid;place-items:center}
-.iconbtn:hover{background:#FEECEE;color:var(--accent);border-color:#FAD1D6}
+.iconbtn:hover{background:#F7EFEA;color:var(--accent);border-color:#E6D3C6}
 
 /* photo drop */
 .drop{border:2px dashed var(--line-strong);border-radius:14px;padding:26px;text-align:center;background:var(--surface-2);transition:.15s;cursor:pointer}
@@ -112,7 +122,7 @@ table.data td.calc{text-align:center;font-family:var(--mono);font-size:14px;colo
 .methodgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
 .chip{text-align:left;padding:12px 14px;border:1.5px solid var(--line-strong);border-radius:12px;background:var(--surface);transition:.15s;position:relative}
 .chip:hover{border-color:var(--faint)}
-.chip.sel{border-color:var(--accent);background:#FFF6F7;box-shadow:0 0 0 3px rgba(226,55,68,.1)}
+.chip.sel{border-color:var(--accent);background:#FBF6F2;box-shadow:0 0 0 3px rgba(91,31,44,.1)}
 .chip .mlbl{font-weight:600;font-size:13.5px;display:flex;align-items:center;gap:6px}
 .chip .mdesc{font-size:11px;color:var(--muted);margin-top:2px;min-height:14px}
 .chip .mval{font-family:var(--mono);font-size:17px;font-weight:700;margin-top:8px;color:var(--ink)}
@@ -157,7 +167,7 @@ table.zones .mono{font-size:13px}
 
 /* ---------- advies (spraak → tekst) ---------- */
 textarea.in{width:100%;border:1px solid var(--line);background:var(--card);border-radius:10px;padding:11px 13px;font-family:var(--body);font-size:14px;line-height:1.5;color:var(--ink);resize:vertical;box-sizing:border-box}
-textarea.in:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(226,55,68,.1)}
+textarea.in:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(91,31,44,.1)}
 .micdot{width:9px;height:9px;border-radius:50%;background:var(--muted);display:inline-block;margin-right:7px;vertical-align:middle}
 #micBtn.rec{border-color:var(--accent);color:var(--accent)}
 #micBtn.rec .micdot{background:var(--accent);animation:pulse 1s infinite}
@@ -225,7 +235,7 @@ textarea.in:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px r
 .ttbtn:hover{border-color:var(--muted)}
 .ttbtn b{font-family:'Space Grotesk',sans-serif;font-size:15px;color:var(--ink)}
 .ttbtn span{font-size:12.5px;color:var(--muted);line-height:1.35}
-.ttbtn.active{border-color:var(--accent);background:linear-gradient(0deg,rgba(226,55,68,.05),rgba(226,55,68,.05)),var(--card);box-shadow:0 0 0 3px rgba(226,55,68,.12)}
+.ttbtn.active{border-color:var(--accent);background:linear-gradient(0deg,rgba(226,55,68,.05),rgba(226,55,68,.05)),var(--card);box-shadow:0 0 0 3px rgba(91,31,44,.12)}
 .tt-only{display:none}
 .effrow{display:grid;grid-template-columns:1fr 1fr auto;gap:10px;align-items:end;margin-bottom:10px}
 .bigresult{display:flex;flex-wrap:wrap;gap:14px;margin:6px 0 4px}
