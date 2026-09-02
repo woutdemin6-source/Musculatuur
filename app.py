@@ -245,6 +245,39 @@ section[data-testid="stSidebar"] .dm-logo-text .name {{ color: #FFFFFF !importan
 .dm-plan-opbouw1, .dm-plan-opbouw2 {{ background: #FDF3E0; border-left-color: #8a6a1f; }}
 .dm-plan-piek {{ background: #F3E3E0; border-left-color: #8a3a2a; }}
 .dm-plan-taper_afbouw, .dm-plan-wedstrijdweek {{ background: #FBE7E2; border-left-color: #a13a2a; }}
+/* Volumebalk per blok — maakt de opbouw naar het piekblok en de val erna zichtbaar */
+.dm-volbar {{
+    position: relative; height: 22px; border-radius: 6px; background: rgba(59,40,32,0.06);
+    margin: 0.5rem 0 0.4rem 0; overflow: hidden;
+}}
+.dm-volbar-fill {{ height: 100%; background: linear-gradient(90deg, {DM_GREEN}, {DM_GREEN_DARK}); opacity: 0.55; }}
+.dm-volbar-lbl {{
+    position: absolute; left: 9px; top: 0; line-height: 22px;
+    font-family: 'Poppins', sans-serif; font-size: 0.72rem; font-weight: 600; color: {DM_BROWN};
+}}
+
+/* Cyclus van 4 weken (3:1) binnen een blok, met de concrete actiepunten */
+.dm-cyc {{
+    margin-top: 0.6rem; padding: 0.6rem 0.8rem; background: rgba(255,255,255,0.65);
+    border-radius: 10px; border: 1px solid rgba(59,40,32,0.08);
+}}
+.dm-cyc-kop {{
+    display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap; gap: 0.4rem;
+    font-family: 'Poppins', sans-serif; font-size: 0.78rem; font-weight: 700; color: {DM_MAROON};
+    text-transform: uppercase; letter-spacing: 0.6px;
+}}
+.dm-cyc-dates {{ font-weight: 500; color: {DM_MUTED}; text-transform: none; letter-spacing: 0; }}
+.dm-cyc-ritme {{
+    display: block; font-family: 'Poppins', sans-serif; font-size: 0.75rem; color: {DM_MUTED};
+    margin-top: 0.15rem;
+}}
+.dm-cyc-acties {{ margin: 0.45rem 0 0 0; padding-left: 1.05rem; }}
+.dm-cyc-acties li {{
+    font-family: 'Poppins', sans-serif; font-size: 0.87rem; line-height: 1.5; color: #45403c;
+    margin-bottom: 0.28rem;
+}}
+.dm-cyc-acties li:last-child {{ margin-bottom: 0; }}
+
 .dm-goal-chip {{
     display: inline-flex; align-items: center; gap: 0.5rem; background: #FFFFFF;
     border: 1px solid #E3D5C8; border-radius: 999px; padding: 0.4rem 0.9rem; margin: 0 0.4rem 0.4rem 0;
@@ -590,19 +623,48 @@ def render_jaarplanning(plan):
             st.warning(g['warning'])
         st.caption(f"{g['weken_beschikbaar']} weken beschikbaar voor dit blok, terugwerkend gepland vanaf de wedstrijdweek.")
 
+        blokken = blocks_by_goal.get(g['name'], [])
+        # De volumebalk is relatief aan het zwaarste blok, zodat de opbouw naar het piekblok
+        # en de val erna in één oogopslag zichtbaar zijn.
+        max_pct = max([b.get('volume_pct') or 0 for b in blokken] or [100]) or 100
+
         rows_html = ''
-        for b in blocks_by_goal.get(g['name'], []):
+        for b in blokken:
             note_html = f'<div class="dm-plan-note">💡 {b["notitie"]}</div>' if b['notitie'] else ''
-            dates_txt = f'{b["start"].strftime("%d %b")} – {b["einde"].strftime("%d %b %Y")} ({b["weken"]} w.)'
+            dates_txt = f'{b["start"].strftime("%d %b")} – {b["einde"].strftime("%d %b %Y")}'
+            pct = b.get('volume_pct') or 0
+            breedte = round(100 * pct / max_pct)
+
+            cycli_html = ''
+            for c in b.get('cycli', []):
+                acties = ''.join(f'<li>{a}</li>' for a in c['acties'])
+                if not acties:
+                    continue
+                ritme = f'<span class="dm-cyc-ritme">{c["ritme"]}</span>' if c['ritme'] else ''
+                kop = (f'Cyclus {c["nr"]} · week {c["week_van"]}-{c["week_tot"]}'
+                       if b['weken'] >= 4 else 'Deze week')
+                cycli_html += (
+                    f'<div class="dm-cyc">'
+                    f'<div class="dm-cyc-kop">{kop}'
+                    f'<span class="dm-cyc-dates">{c["start"].strftime("%d %b")} – '
+                    f'{c["einde"].strftime("%d %b")}</span></div>'
+                    f'{ritme}'
+                    f'<ul class="dm-cyc-acties">{acties}</ul>'
+                    f'</div>'
+                )
+
             rows_html += (
                 f'<div class="dm-plan-block dm-plan-{b["fase_key"]}">'
                 f'<div class="dm-plan-header">'
                 f'<span class="dm-plan-fase">{b["fase"]}</span>'
-                f'<span class="dm-plan-dates">{dates_txt}</span>'
+                f'<span class="dm-plan-dates">{dates_txt} · {b["weken"]} wk</span>'
                 f'</div>'
-                f'<div class="dm-plan-meta">Volume: {b["volume"]} &nbsp;·&nbsp; Intensiteit: {b["intensiteit"]}</div>'
+                f'<div class="dm-volbar"><div class="dm-volbar-fill" style="width:{breedte}%"></div>'
+                f'<span class="dm-volbar-lbl">{b["volume"]}</span></div>'
+                f'<div class="dm-plan-meta">Intensiteit: {b["intensiteit"]}</div>'
                 f'<div class="dm-plan-focus">{b["focus"]}</div>'
                 f'{note_html}'
+                f'{cycli_html}'
                 f'</div>'
             )
         st.markdown(f'<div class="dm-card">{rows_html}</div>', unsafe_allow_html=True)
@@ -775,11 +837,15 @@ def _belastbaarheid_voor(athlete_name, bron):
         full = st.session_state.get('athletes', {}).get(athlete_name)
         if not full:
             return None
+        summary = full['summary']
         return {
-            'current': full['summary']['acwr']['current'],
-            'sessies': full['summary']['totalSessionsAllTime'],
-            'dateRange': full['summary']['dateRange'],
+            'current': summary['acwr']['current'],
+            'sessies': summary['totalSessionsAllTime'],
+            'dateRange': summary['dateRange'],
             'bron': 'eerdere analyse',
+            # Het sportprofiel van de laatste 3 maanden voedt de actiepunten per cyclus.
+            'profiel': core.sport_profiel(summary['periods']['3m']),
+            'gaps': summary.get('gaps', []),
         }
     light = st.session_state.get('jp_belastbaarheid', {}).get(athlete_name)
     return {**light, 'bron': 'activities.csv'} if light else None
@@ -947,7 +1013,13 @@ def render_jaarplanning_page():
         st.markdown('##### ③ Voorgestelde planning')
         today_ref = pd.Timestamp(ref_date)
         acwr_current = bel['current'] if bel else None
-        plan = core.generate_jaarplanning(today_ref, goals, acwr_current)
+        plan = core.generate_jaarplanning(today_ref, goals, acwr_current,
+                                           profiel=(bel or {}).get('profiel'),
+                                           gaps=(bel or {}).get('gaps'))
+        if not (bel or {}).get('profiel'):
+            st.caption('Zonder belastbaarheidsdata blijven de actiepunten algemeen. Kies hierboven een '
+                       'analyse of upload een activities.csv om ze op de trainingshistoriek per sport '
+                       'te baseren.')
         render_jaarplanning(plan)
     else:
         st.caption('Nog geen A-doelen ingesteld. Voeg er hierboven toe om een voorgestelde jaarplanning te zien.')

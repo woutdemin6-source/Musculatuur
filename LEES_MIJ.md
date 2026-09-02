@@ -85,6 +85,23 @@ Atleet vraagt via Strava: Instellingen → Mijn account → "Download of verwijd
 - Automatisch gedetecteerde kernbevindingen (A:C ratio-status, sweet spot-weken, en "blinde vlekken": sporten die historisch actief waren maar recent volledig afwezig zijn)
 - **Trainingsadvies voor de komende weken**: regelgebaseerd advies afgeleid uit de ACWR-stand, de trend van de laatste weken en de consistentie (te veel pieken/dalen) — bv. "bouw af", "stabiliseer" of "ruimte om op te bouwen (+5-10%/week)", plus advies bij het heropstarten van een sport na een blinde vlek.
 - **A-doelen & jaarplanning**: voeg tot 3 A-doelen per atleet toe (naam, datum, discipline). De tool bouwt daaruit een voorgestelde macro/mesocyclus-structuur, terugwerkend vanaf elke wedstrijddatum, volgens de periodiseringsprincipes van Joe Friel (Basis → Opbouw → Piek → Taper, 3:1-belastingsritme) en Jan Olbrecht (aerobe capaciteit eerst en langst opgebouwd, drempel-/anaerobe prikkels pas laat en gericht). De taper is vast: 2 weken, week -2 op 60% volume, wedstrijdweek op 40% volume met behoud van intensiteit. Het startpunt van de eerste cyclus wordt aangepast aan de huidige belastbaarheid (bv. een stabilisatieweek bij een te hoge ACWR, of extra basisopbouw bij onderbelasting). Doelen worden per sessie bijgehouden (niet opgeslagen na herstart) — dit is een voorstel op macro/mesocyclus-niveau, geen dag-per-dag schema; de coach vertaalt dit naar concrete sessies.
+
+  **Bewuste afwijking van Friel — de volumepiek.** Bij Friel is *Peak* een blok met láág volume
+  en hoge intensiteit; het volume piekt daar al in de late basisperiode. Op vraag van de coach
+  ligt de volumepiek in deze tool in het **Piekblok** zelf: het volume loopt op tot ~100-110%
+  vlak vóór de taper, waarna de taper die belasting omzet in vorm. De volledige volumeladder
+  staat in `FASE_INFO` (`core.py`), met een numeriek `volume_pct` per fase dat de balk in de UI
+  voedt.
+
+  **Actiepunten per cyclus van 4 weken.** Elk blok wordt opgesplitst in cycli van 3 opbouwweken
+  + 1 hersteldweek, en elke cyclus krijgt concrete actiepunten die uit de trainingsanalyse
+  volgen. De planning krijgt daarvoor het **sportprofiel van de laatste 3 maanden** mee
+  (sessies/week en aandeel in de trainingslast per sport) plus de blinde vlekken. Een triatleet
+  die 0,5x per week zwemt krijgt in de basis een techniek- en frequentiefocus op zwemmen die
+  over de blokken heen oploopt (1x → 2x → 3x); disciplines die op niveau staan krijgen expliciet
+  "aanhouden, hier geen extra volume". Alle drempels en sportvereisten staan bij elkaar in
+  `DISCIPLINE_SPORTEN`, `TECHNIEKSPORTEN` en `FOCUS_DREMPELS` (`core.py`), zodat een coach ze
+  kan bijstellen zonder de planningslogica aan te raken.
 - Activiteitenoverzicht per sport voor 2 jaar / 1 jaar / 6 maanden / 3 maanden / 4 weken / 1 week
 - A:C ratio-grafiek en 16-weken trendtabel
 - Methodologie & datakwaliteit (transparant over geschatte vs. geregistreerde trainingslast)

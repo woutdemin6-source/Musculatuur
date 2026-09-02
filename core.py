@@ -229,6 +229,8 @@ def period_summary(df: pd.DataFrame, days: int, today: pd.Timestamp, label: str)
     start = today - pd.Timedelta(days=days)
     return {
         'label': f"{label} ({start.strftime('%d %b')} - {today.strftime('%d %b %Y')})",
+        # Lengte van de periode: de jaarplanning rekent hiermee sessies/week per sport uit.
+        '_dagen': days,
         'sessies': int(len(d)),
         'uren': round(d['Beweegtijd'].sum() / 3600.0, 1),
         'km': round(d['Afstand.1'].sum() / 1000.0, 1),
@@ -339,14 +341,15 @@ def _acwr_overview(acwr: pd.Series, today: pd.Timestamp):
 def compute_belastbaarheid(df: pd.DataFrame, today: pd.Timestamp) -> dict:
     """Lichte berekening: enkel de huidige belastbaarheid (A:C ratio) uit een activities.csv.
 
-    Bewust géén periode-overzichten, blinde vlekken, grafiek of trainingsadvies — dit is
-    bedoeld als cijfermatige basis onder de jaarplanning, waar enkel de actuele belasting
-    telt om het startpunt van de eerste cyclus te bepalen. Wie de volledige analyse wil,
-    gebruikt build_summary (de Belastbaarheidsanalyse-tool)."""
+    Geen grafiek, geen periode-overzichten en geen trainingsadvies — dat blijft voorbehouden
+    aan build_summary (de Belastbaarheidsanalyse-tool). Wél het sportprofiel en de blinde
+    vlekken: de jaarplanning heeft die nodig om concrete actiepunten per discipline te kunnen
+    formuleren ("0,8x/week gezwommen" → techniekfocus), niet alleen een A:C ratio."""
     df = estimate_load(df)
     _daily, acute, chronic, acwr = compute_acwr(df, today)
     current = float(acwr.iloc[-1]) if not np.isnan(acwr.iloc[-1]) else None
     _table, weeks_green, weeks_high, weeks_low, weeks_total = _acwr_overview(acwr, today)
+    periode_3m = period_summary(df, 91, today, 'Laatste 3 maanden')
     return {
         'current': None if current is None else round(current, 1),
         'acute7d': round(float(acute.iloc[-1])),
@@ -356,6 +359,8 @@ def compute_belastbaarheid(df: pd.DataFrame, today: pd.Timestamp) -> dict:
         'sessies': int(len(df)),
         'dateRange': {'from': df['date'].min().strftime('%d %b %Y'), 'to': df['date'].max().strftime('%d %b %Y')},
         'todayIso': today.strftime('%Y-%m-%d'),
+        'profiel': sport_profiel(periode_3m),
+        'gaps': detect_gaps(df, today),
     }
 
 
@@ -427,7 +432,7 @@ FASE_INFO = {
         'naam': 'Transitie (herstel)',
         'focus': 'Actief herstel na de vorige wedstrijd: laag volume, vrije/losse beweging, geen '
                  'structuur. Fysiek en mentaal herladen voor de volgende opbouw (Friel).',
-        'volume': 'laag (~40-50%)', 'intensiteit': 'laag',
+        'volume': 'laag (~40-50%)', 'volume_pct': 45, 'intensiteit': 'laag',
     },
     'basis1': {
         'naam': 'Basis 1',
@@ -436,53 +441,216 @@ FASE_INFO = {
                  'mitochondriale en capillaire aanpassingen) waar de rest van het seizoen op '
                  'steunt — deze aanpassingen hebben tijd nodig en worden daarom als eerste en '
                  'langst opgebouwd (Olbrecht).',
-        'volume': 'opbouwend (~60-80%)', 'intensiteit': 'laag',
+        'volume': 'opbouwend (~60-80%)', 'volume_pct': 70, 'intensiteit': 'laag',
     },
     'basis2': {
         'naam': 'Basis 2',
         'focus': 'Verdere opbouw van de aerobe capaciteit, kracht wordt sport-specifieker. Eerste, '
                  'beperkte impulsen net onder de drempel — de nadruk blijft op het aerobe systeem.',
-        'volume': 'opbouwend (~75-90%)', 'intensiteit': 'laag tot gematigd',
+        'volume': 'opbouwend (~75-90%)', 'volume_pct': 82, 'intensiteit': 'laag tot gematigd',
     },
     'basis3': {
         'naam': 'Basis 3',
-        'focus': 'Spieruithouding en aerobe power verder uitbouwen richting het volumepiek van het '
-                 'seizoen. Aerobe capaciteit blijft prioriteit — anaerobe systemen worden bewust '
-                 'nog niet gericht aangesproken (Olbrecht).',
-        'volume': 'piek van de basisperiode (~90-100%)', 'intensiteit': 'gematigd',
+        'focus': 'Spieruithouding en aerobe power verder uitbouwen. Aerobe capaciteit blijft '
+                 'prioriteit — anaerobe systemen worden bewust nog niet gericht aangesproken '
+                 '(Olbrecht).',
+        'volume': 'opbouwend (~85-95%)', 'volume_pct': 90, 'intensiteit': 'gematigd',
     },
     'opbouw1': {
         'naam': 'Opbouw 1',
         'focus': 'Overgang naar wedstrijdspecifieke intensiteit: tempo- en drempelwerk wint aan '
-                 'belang, volume daalt licht terwijl de intensiteit stijgt (Friel).',
-        'volume': 'lichte daling (~80-90%)', 'intensiteit': 'gematigd tot hoog',
+                 'belang, het volume blijft hoog (Friel/Olbrecht-volgorde, met de volumepiek '
+                 'bewust later — zie FORMULES.md).',
+        'volume': 'hoog (~90-95%)', 'volume_pct': 92, 'intensiteit': 'gematigd tot hoog',
     },
     'opbouw2': {
         'naam': 'Opbouw 2',
         'focus': 'Wedstrijdspecifieke intensiteit staat centraal: drempel- en (waar relevant) '
                  'anaerobe capaciteit worden nu pas gericht getraind — bewust laat in het seizoen '
                  'en gebouwd op de al aanwezige aerobe basis (Olbrecht), niet ervoor in de plaats.',
-        'volume': 'verder dalend (~70-85%)', 'intensiteit': 'hoog',
+        'volume': 'hoog (~90-100%)', 'volume_pct': 95, 'intensiteit': 'hoog',
     },
     'piek': {
-        'naam': 'Piek',
-        'focus': 'Kort blok net voor de taper: laag volume, scherpe wedstrijdspecifieke prikkels. '
-                 'Doel is scherpte behouden, niet nog meer belasting opbouwen.',
-        'volume': 'laag (~60-70%)', 'intensiteit': 'hoog (kort en scherp)',
+        'naam': 'Piekblok',
+        'focus': 'De zwaarste week van de cyclus, vlak voor de taper: hoogste weekbelasting '
+                 'gecombineerd met wedstrijdspecifieke intensiteit en een wedstrijdsimulatie. '
+                 'De taper erna zet die belasting om in vorm.',
+        'volume': 'piekvolume (~100-110%) — hoogste van de cyclus', 'volume_pct': 105, 'intensiteit': 'hoog',
     },
     'taper_afbouw': {
         'naam': 'Taper — afbouwweek',
         'focus': 'Eerste taperweek: het volume gaat fors naar beneden, de intensiteit blijft '
                  'aanwezig zodat de scherpte behouden blijft.',
-        'volume': '60% van het recente trainingsvolume', 'intensiteit': 'behouden',
+        'volume': '60% van het recente trainingsvolume', 'volume_pct': 60, 'intensiteit': 'behouden',
     },
     'wedstrijdweek': {
         'naam': 'Wedstrijdweek',
         'focus': 'Laatste week voor het A-doel: minimale belasting, enkel korte activerende '
                  'prikkels. Intensiteit blijft behouden, volume is minimaal.',
-        'volume': '40% van het recente trainingsvolume', 'intensiteit': 'behouden',
+        'volume': '40% van het recente trainingsvolume', 'volume_pct': 40, 'intensiteit': 'behouden',
     },
 }
+
+
+# ---------------------------------------------------------------------------
+# Data-gestuurde focuspunten per blok.
+#
+# De planning krijgt het sportprofiel van de atleet mee (sessies/week en aandeel in de
+# trainingslast per sport, uit de laatste 3 maanden) plus de discipline van het A-doel.
+# Daaruit volgen concrete actiepunten: een triatleet die 0,8x/week zwemt krijgt een
+# techniek- en frequentiefocus op zwemmen, een loper met weinig loopvolume krijgt een
+# loopvolume-blok in de basis, enzovoort.
+#
+# Alle drempels en teksten staan hieronder bij elkaar zodat de coach ze kan bijstellen
+# zonder de planningslogica aan te raken.
+# ---------------------------------------------------------------------------
+
+# Welke sporten een A-doel nodig heeft. Sleutels = disciplines uit de doel-invoer,
+# waarden = sportnamen zoals SPORT_LABELS ze teruggeeft.
+DISCIPLINE_SPORTEN = {
+    'Triatlon': ['Zwemmen', 'Fietsen', 'Hardlopen'],
+    'Lopen': ['Hardlopen'],
+    'Fietsen': ['Fietsen'],
+    'Zwemmen': ['Zwemmen'],
+    'Andere': [],
+}
+
+# Sporten waar techniek de beperkende factor is: daar heeft frequentie meer effect dan volume.
+TECHNIEKSPORTEN = ['Zwemmen']
+
+FOCUS_DREMPELS = {
+    'sessies_zeer_laag': 0.75,   # minder dan ~3 sessies per maand
+    'sessies_laag': 1.5,         # minder dan ~1,5 sessies per week
+    'aandeel_laag': 0.15,        # minder dan 15% van de totale trainingslast
+    'doelsessies_techniek': 3,   # streefdoel voor een techniekgevoelige sport
+    'doelsessies_duur': 2,       # streefdoel voor een duursport
+}
+
+
+def sport_profiel(period: dict) -> dict:
+    """Zet een periode-overzicht (uit period_summary) om naar een profiel per sport:
+    sessies per week en aandeel in de totale trainingslast. Dat is wat de planning nodig
+    heeft om te zien welke discipline achterblijft."""
+    weken = max(1.0, period.get('_dagen', 91) / 7.0)
+    totaal_load = sum(s['load'] for s in period.get('bySport', [])) or 1
+    profiel = {}
+    for s in period.get('bySport', []):
+        profiel[s['sport']] = {
+            'sessies': s['sessies'],
+            'sessies_per_week': round(s['sessies'] / weken, 2),
+            'uren': s['uren'],
+            'km': s['km'],
+            'aandeel': round(s['load'] / totaal_load, 3),
+        }
+    return profiel
+
+
+def _sport_status(profiel: dict, sport: str) -> dict:
+    """Beoordeelt één sport tegen de drempels hierboven."""
+    p = profiel.get(sport)
+    spw = p['sessies_per_week'] if p else 0.0
+    aandeel = p['aandeel'] if p else 0.0
+    if spw == 0:
+        niveau = 'ontbreekt'
+    elif spw < FOCUS_DREMPELS['sessies_zeer_laag']:
+        niveau = 'zeer_laag'
+    elif spw < FOCUS_DREMPELS['sessies_laag']:
+        niveau = 'laag'
+    else:
+        niveau = 'ok'
+    return {'sport': sport, 'sessies_per_week': spw, 'aandeel': aandeel, 'niveau': niveau}
+
+
+def _sport_prioriteit(statussen: list) -> list:
+    """Zwakste discipline eerst — daar valt de meeste winst te halen."""
+    rang = {'ontbreekt': 0, 'zeer_laag': 1, 'laag': 2, 'ok': 3}
+    return sorted(statussen, key=lambda s: (rang[s['niveau']], s['aandeel']))
+
+
+def _acties_voor_blok(fase_key, statussen, gaps_sporten, discipline, cyclus_index, is_laatste,
+                       is_eerste_van_blok=True):
+    """Concrete actiepunten voor één cyclus van 4 weken binnen een blok.
+
+    cyclus_index telt dóór over blokken heen (niet vanaf 0 per blok), zodat de opbouw blijft
+    oplopen: als Basis 1 de zwemfrequentie naar 2x heeft gebracht, begint Basis 2 niet opnieuw
+    bij 1x. Geeft een lijst korte, uitvoerbare regels terug."""
+    acties = []
+    is_basis = fase_key.startswith('basis')
+    is_opbouw = fase_key.startswith('opbouw')
+
+    if fase_key in ('taper_afbouw', 'wedstrijdweek'):
+        return acties
+    if fase_key == 'transitie':
+        return ['Losse, vrije beweging — geen structuur, geen intensiteit.',
+                'Gebruik deze week om klachten en vermoeidheid te laten zakken.']
+
+    for st in _sport_prioriteit(statussen):
+        sport, niveau, spw = st['sport'], st['niveau'], st['sessies_per_week']
+        techniek = sport in TECHNIEKSPORTEN
+        doel = (FOCUS_DREMPELS['doelsessies_techniek'] if techniek
+                else FOCUS_DREMPELS['doelsessies_duur'])
+
+        if sport in gaps_sporten:
+            if is_basis and cyclus_index == 0:
+                acties.append(f'{sport}: heropstarten na een lange onderbreking — eerste 2 weken '
+                              f'kort en laag intensief, daarna pas volume erbij.')
+            continue
+
+        if niveau in ('ontbreekt', 'zeer_laag'):
+            if is_basis:
+                # Bouw de frequentie stap voor stap op over de cycli heen. Het vertrekpunt
+                # noemen we alleen in de allereerste cyclus; daarna is dat achterhaald.
+                stap = min(doel, max(1, round(spw) + 1 + cyclus_index))
+                huidig = f'{spw:.1f}'.replace('.', ',')
+                vanaf = f' (nu {huidig}x)' if cyclus_index == 0 else ''
+                if techniek:
+                    acties.append(f'{sport}: naar {stap}x per week{vanaf}, met elke sessie '
+                                  f'techniekwerk (korte series, veel rust) — frequentie gaat hier '
+                                  f'vóór volume.')
+                else:
+                    acties.append(f'{sport}: naar {stap}x per week{vanaf}, rustige duurunits '
+                                  f'om de belastbaarheid op te bouwen (+5-10% volume per week).')
+            elif is_opbouw:
+                acties.append(f'{sport}: frequentie vasthouden en nu wedstrijdspecifieke prikkels '
+                              f'toevoegen — techniek blijft aandachtspunt onder vermoeidheid.'
+                              if techniek else
+                              f'{sport}: opgebouwde frequentie vasthouden en er drempelwerk in leggen.')
+        elif niveau == 'laag':
+            if is_basis:
+                acties.append(f'{sport}: naar {doel}x per week en het aandeel in de weekbelasting '
+                              f'verhogen met langere duurunits.')
+            elif is_opbouw:
+                acties.append(f'{sport}: wedstrijdspecifieke intensiteit (drempel), volume houden.')
+        elif niveau == 'ok' and st['aandeel'] < FOCUS_DREMPELS['aandeel_laag'] and is_basis:
+            acties.append(f'{sport}: frequentie is in orde, maar het aandeel in de weekbelasting is '
+                          f'klein — verleng de duursessies in plaats van er sessies bij te steken.')
+
+    if fase_key == 'piek':
+        wedstrijd = discipline.lower() if discipline else 'de wedstrijd'
+        acties.append(f'Hoogste weekbelasting van de cyclus — plan hier de wedstrijdsimulatie voor '
+                      f'{wedstrijd} (tempo en voeding zoals op wedstrijddag).')
+        acties.append('Na deze week gaat het volume omlaag: de taper zet deze belasting om in vorm.')
+
+    # Disciplines die er goed voor staan verdienen ook een regel, anders lijkt het alsof er
+    # met de rest van de week niets moet gebeuren.
+    op_niveau = [s['sport'] for s in statussen
+                 if s['niveau'] == 'ok' and s['aandeel'] >= FOCUS_DREMPELS['aandeel_laag']]
+    if op_niveau and (is_basis or is_opbouw) and is_eerste_van_blok:
+        namen = ' en '.join(op_niveau) if len(op_niveau) < 3 else \
+            ', '.join(op_niveau[:-1]) + ' en ' + op_niveau[-1]
+        acties.append(f'{namen}: op niveau — huidige frequentie aanhouden, hier geen extra '
+                      f'volume bij zolang de achterstand elders wordt weggewerkt.')
+
+    if is_opbouw and not acties:
+        acties.append('Wedstrijdspecifieke intensiteit centraal; volume vasthouden.')
+    if is_basis and not acties:
+        acties.append('Aerobe basis verder uitbouwen — volume geleidelijk op (+5-10% per week), '
+                      'intensiteit laag houden.')
+
+    if is_laatste and is_basis:
+        acties.append('Laatste cyclus van dit blok: consolideer wat staat in plaats van er nog bij '
+                      'te leggen.')
+    return acties
 
 
 def _distribute(total_weeks, weights, min_each=1):
@@ -540,21 +708,64 @@ def _split_3_1(n_weeks):
     return cycles
 
 
-def _beschrijf_3_1(wks):
-    """Zet het 3:1-ritme binnen 1 blok om naar een expliciete week-per-week beschrijving, zodat je
-    precies ziet waar de hersteldweek(en) vallen — ook als de bloklengte geen veelvoud van 4 is
-    (de bloklengte zelf wordt bepaald door de beschikbare tijd tot het doel, niet door het 3:1-ritme;
-    dat ritme loopt er als sub-structuur doorheen, met een kortere opbouwstaart als het niet perfect uitkomt)."""
-    cycles = _split_3_1(wks)
-    parts = []
-    week = 1
-    for kind, n in cycles:
-        end = week + n - 1
-        label = 'opbouw' if kind == 'opbouw' else 'hersteld (~-30% volume)'
-        rng = f'week {week}' if n == 1 else f'week {week}-{end}'
-        parts.append(f'{rng}: {label}')
-        week = end + 1
-    return f"3:1-ritme binnen dit blok ({wks} weken) — " + ', '.join(parts) + '.'
+def _cycli_van_blok(block_start, wks, fase_key, statussen, gaps_sporten, discipline,
+                     cyclus_offset=0):
+    """Splitst een blok in cycli van 4 weken (3 opbouw + 1 herstel) en hangt aan elke cyclus
+    de concrete actiepunten. De bloklengte volgt uit de tijd tot het doel, niet uit het ritme;
+    een rest van 1-3 weken blijft dus opbouw in plaats van een losse hersteldweek te forceren."""
+    # Taper, wedstrijdweek en transitie kennen geen 3:1-ritme — dat zijn afgebakende weken
+    # met een eigen doel. Ze worden als één geheel getoond, zonder cyclus-taal.
+    if fase_key in ('taper_afbouw', 'wedstrijdweek', 'transitie') or wks < 4:
+        return [{
+            'nr': 1, 'start': block_start,
+            'einde': block_start + pd.Timedelta(weeks=wks) - pd.Timedelta(days=1),
+            'weken': wks, 'week_van': 1, 'week_tot': wks, 'ritme': None, 'herstelweek': False,
+            'acties': _acties_voor_blok(fase_key, statussen, gaps_sporten, discipline,
+                                         cyclus_offset, False, True),
+        }]
+
+    ritme = _split_3_1(wks)
+
+    # Groepeer het ritme terug tot cycli van (opbouw + eventueel herstel).
+    groepen, huidig = [], None
+    for soort, n in ritme:
+        if soort == 'opbouw':
+            if huidig:
+                groepen.append(huidig)
+            huidig = {'opbouw': n, 'herstel': 0}
+        elif huidig:
+            huidig['herstel'] += n
+    if huidig:
+        groepen.append(huidig)
+
+    cycli = []
+    week_cursor = block_start
+    week_nr = 1
+    for i, g in enumerate(groepen):
+        totaal = g['opbouw'] + g['herstel']
+        start = week_cursor
+        einde = week_cursor + pd.Timedelta(weeks=totaal) - pd.Timedelta(days=1)
+        ritme_tekst = (f"{g['opbouw']} opbouwweken + {g['herstel']} hersteldweek (~-30% volume)"
+                       if g['herstel'] else
+                       f"{g['opbouw']} opbouwweek{'en' if g['opbouw'] > 1 else ''} (geen volledige "
+                       f"cyclus meer tot het einde van dit blok)")
+        cycli.append({
+            'nr': i + 1,
+            'start': start,
+            'einde': einde,
+            'weken': totaal,
+            'week_van': week_nr,
+            'week_tot': week_nr + totaal - 1,
+            'ritme': ritme_tekst,
+            'herstelweek': g['herstel'] > 0,
+            'acties': _acties_voor_blok(fase_key, statussen, gaps_sporten, discipline,
+                                         cyclus_offset + i,
+                                         i == len(groepen) - 1 and len(groepen) > 1,
+                                         is_eerste_van_blok=(i == 0)),
+        })
+        week_cursor = einde + pd.Timedelta(days=1)
+        week_nr += totaal
+    return cycli
 
 
 def _startaanpassing(acwr_current):
@@ -568,8 +779,12 @@ def _startaanpassing(acwr_current):
     return None
 
 
-def _plan_segment(start, race_monday, is_first_segment, startaanpassing, goal_name):
+def _plan_segment(start, race_monday, is_first_segment, startaanpassing, goal_name,
+                   profiel=None, gaps_sporten=(), discipline=''):
     """Bouwt de macro/mesocyclus-structuur voor 1 A-doel, terugwerkend vanaf de wedstrijdweek."""
+    profiel = profiel or {}
+    vereiste_sporten = DISCIPLINE_SPORTEN.get(discipline, [])
+    statussen = [_sport_status(profiel, s) for s in vereiste_sporten]
     n_weken = ((race_monday - start).days // 7) + 1
     if n_weken <= 0:
         return [], ('Dit doel valt te dicht op het vorige (binnen de hersteltijd) — er is geen ruimte '
@@ -633,6 +848,7 @@ def _plan_segment(start, race_monday, is_first_segment, startaanpassing, goal_na
     out = []
     cursor = start
     basis_note_used = False
+    cyclus_teller = {}
     for key, wks in blocks:
         if wks <= 0:
             continue
@@ -645,27 +861,37 @@ def _plan_segment(start, race_monday, is_first_segment, startaanpassing, goal_na
         if key == 'basis1' and stabilisatie_note and basis_extended and not basis_note_used:
             note = stabilisatie_note
             basis_note_used = True
-        if wks >= 4 and key not in ('taper_afbouw', 'wedstrijdweek', 'transitie'):
-            loading_note = _beschrijf_3_1(wks)
-            note = f'{note} {loading_note}' if note else loading_note
+        # De opbouwteller loopt door binnen een fasefamilie (alle basisblokken samen, alle
+        # opbouwblokken samen), zodat Basis 2 verdergaat waar Basis 1 eindigde.
+        familie = 'basis' if key.startswith('basis') else ('opbouw' if key.startswith('opbouw') else key)
+        cycli = _cycli_van_blok(block_start, wks, key, statussen, gaps_sporten, discipline,
+                                 cyclus_offset=cyclus_teller.get(familie, 0))
+        cyclus_teller[familie] = cyclus_teller.get(familie, 0) + len(cycli)
         out.append({
             'fase_key': key, 'fase': info['naam'], 'start': block_start, 'einde': block_end,
-            'weken': wks, 'focus': info['focus'], 'volume': info['volume'], 'intensiteit': info['intensiteit'],
-            'notitie': note, 'doel': goal_name,
+            'weken': wks, 'focus': info['focus'], 'volume': info['volume'],
+            'volume_pct': info.get('volume_pct'), 'intensiteit': info['intensiteit'],
+            'notitie': note, 'doel': goal_name, 'cycli': cycli,
         })
         cursor = block_end + pd.Timedelta(days=1)
 
     return out, warning
 
 
-def generate_jaarplanning(today: pd.Timestamp, a_goals: list, acwr_current) -> dict:
+def generate_jaarplanning(today: pd.Timestamp, a_goals: list, acwr_current,
+                           profiel: dict = None, gaps: list = None) -> dict:
     """Bouwt een voorgestelde jaarplanning (macro/mesocyclus-structuur) voor max. 3 A-doelen,
     terugwerkend gepland vanaf elke wedstrijddatum, volgens Friel en Olbrecht (zie module-doc
     hierboven), aangepast aan de huidige belastbaarheid van de atleet.
 
     a_goals: lijst van dicts {'name': str, 'date': pd.Timestamp, 'discipline': str}
+    profiel: sportprofiel uit sport_profiel() — bepaalt de concrete actiepunten per cyclus.
+             Zonder profiel valt de planning terug op algemene focuspunten per fase.
+    gaps:    blinde vlekken uit detect_gaps(), zodat een lang afwezige discipline voorzichtig
+             heropgestart wordt in plaats van meteen op volume te gaan.
+
     Retourneert {'goals': [...], 'blocks': [...]} (blocks in chronologische volgorde, elk met
-    een 'doel'-sleutel om te groeperen per A-doel).
+    een 'doel'-sleutel om te groeperen per A-doel en een 'cycli'-lijst van 4 weken).
     """
     goals = sorted([g for g in a_goals if g['date'] >= today], key=lambda g: g['date'])[:3]
     if not goals:
@@ -673,6 +899,7 @@ def generate_jaarplanning(today: pd.Timestamp, a_goals: list, acwr_current) -> d
 
     monday = today - pd.Timedelta(days=today.weekday())
     startaanpassing = _startaanpassing(acwr_current)
+    gaps_sporten = {g['sport'] for g in (gaps or [])}
 
     all_blocks = []
     goal_summaries = []
@@ -680,7 +907,9 @@ def generate_jaarplanning(today: pd.Timestamp, a_goals: list, acwr_current) -> d
     for i, g in enumerate(goals):
         race_monday = g['date'] - pd.Timedelta(days=g['date'].weekday())
         blocks, warning = _plan_segment(cursor, race_monday, i == 0,
-                                         startaanpassing if i == 0 else None, g['name'])
+                                         startaanpassing if i == 0 else None, g['name'],
+                                         profiel=profiel, gaps_sporten=gaps_sporten,
+                                         discipline=g.get('discipline', ''))
         all_blocks += blocks
         n_weken = max(0, ((race_monday - cursor).days // 7) + 1)
         goal_summaries.append({
