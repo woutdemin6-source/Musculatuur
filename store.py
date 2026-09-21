@@ -20,6 +20,7 @@ testdata) — behandel de secrets als vertrouwelijk en gebruik een sterk app-wac
 """
 import json
 import math
+import unicodedata
 from datetime import datetime, timezone, date
 
 import streamlit as st
@@ -33,11 +34,51 @@ SOORTEN = {
 }
 
 
+# Wat er misgaat bij kopiëren/plakken van een sleutel: krulquotes, spaties, onzichtbare tekens,
+# fullwidth of "vette" Unicode-letters. Wat te herstellen valt, herstellen we stil; de rest
+# melden we leesbaar, want de ruwe fout ('ascii' codec can't encode …) zegt een coach niets.
+_AANHALINGSTEKENS = '"\'“”‘’„‟«»`'
+_ONZICHTBAAR = dict.fromkeys(map(ord, '​‌‍⁠﻿ '), None)
+
+
+def _normaliseer(waarde):
+    if waarde is None:
+        return None
+    s = unicodedata.normalize('NFKC', str(waarde)).translate(_ONZICHTBAAR)
+    s = s.strip().strip(_AANHALINGSTEKENS).strip()
+    return s or None
+
+
 def _secrets():
     try:
-        return st.secrets.get('SUPABASE_URL'), st.secrets.get('SUPABASE_KEY')
+        url, key = st.secrets.get('SUPABASE_URL'), st.secrets.get('SUPABASE_KEY')
     except Exception:
         return None, None
+    return _normaliseer(url), _normaliseer(key)
+
+
+def _probleem(url, key):
+    """Leesbare uitleg als de secrets niet bruikbaar zijn, anders None."""
+    for naam, waarde in (('SUPABASE_URL', url), ('SUPABASE_KEY', key)):
+        if not waarde:
+            continue
+        vreemd = []
+        for c in waarde:
+            if not (32 < ord(c) < 127) and c not in vreemd:
+                vreemd.append(c)
+        if vreemd:
+            voorbeeld = ', '.join(f"'{c}' ({unicodedata.name(c, 'onbekend').lower()})"
+                                  for c in vreemd[:3])
+            return (f'{naam} bevat tekens die niet in een sleutel horen: {voorbeeld}. '
+                    f'Plak de waarde opnieuw als platte tekst (Settings → Secrets), '
+                    f'zonder opmaak, en let op dat je de echte sleutel kopieert en niet een '
+                    f'afgeschermde weergave met puntjes.')
+    if url and not url.startswith('https://'):
+        return 'SUPABASE_URL moet beginnen met https:// — plak de Project URL uit Supabase.'
+    if key and key.count('.') != 2 and not key.startswith('sb_'):
+        return ('SUPABASE_KEY lijkt onvolledig — plak de volledige anon-sleutel '
+                '(begint met "eyJ" en bevat twee punten).')
+    return None
 
 
 def beschikbaar() -> bool:
@@ -49,6 +90,9 @@ def beschikbaar() -> bool:
 def _client():
     from supabase import create_client
     url, key = _secrets()
+    fout = _probleem(url, key)
+    if fout:
+        raise ValueError(fout)
     return create_client(url, key)
 
 
