@@ -26,6 +26,7 @@ from datetime import datetime, timezone, date
 import streamlit as st
 
 SOORTEN = {
+    'intake': 'Intakeverslag',
     'belastbaarheid': 'Belastbaarheidsanalyse',
     'jaarplanning': 'Jaarplanning',
     'prestatietest': 'Prestatietest',

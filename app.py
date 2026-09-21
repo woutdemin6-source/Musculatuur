@@ -24,6 +24,7 @@ from datetime import date
 import numpy as np
 import pandas as pd
 import streamlit as st
+import streamlit.components.v1 as components
 import matplotlib
 matplotlib.use('Agg')
 from matplotlib.figure import Figure
@@ -51,19 +52,20 @@ def _import_core():
 core = _import_core()
 
 
-def _import_store():
-    """Zelfde bescherming als _import_core: store.py is ook een lokale module die Streamlit
-    bewaakt en bij een deploy tijdelijk uit sys.modules kan halen."""
+def _import_lokaal(naam):
+    """Zelfde bescherming als _import_core: store.py en intake.py zijn ook lokale modules die
+    Streamlit bewaakt en bij een deploy tijdelijk uit sys.modules kan halen."""
     for _ in range(4):
         try:
-            return importlib.import_module('store')
+            return importlib.import_module(naam)
         except KeyError:
-            sys.modules.pop('store', None)
+            sys.modules.pop(naam, None)
             time.sleep(0.2)
-    return importlib.import_module('store')
+    return importlib.import_module(naam)
 
 
-store = _import_store()
+store = _import_lokaal('store')
+intake = _import_lokaal('intake')
 
 st.set_page_config(page_title='De Musculatuur — AI performance assistent', page_icon='💪', layout='wide')
 
@@ -432,6 +434,7 @@ def md_bold_to_html(text):
 # ---------------------------------------------------------------------------
 PAGE_HOME = 'home'
 PAGE_ATLETEN = 'atleten'
+PAGE_INTAKE = 'intake'
 PAGE_BELASTBAARHEID = 'belastbaarheid'
 PAGE_JAARPLANNING = 'jaarplanning'
 
@@ -448,6 +451,9 @@ TOOLS = [
     {'key': PAGE_ATLETEN, 'icon': '👤', 'titel': 'Atleten',
      'desc': 'Profiel per atleet: intake, belastbaarheidsanalyses, jaarplanning en de documenten '
              'uit de prestatietesten — alles bewaard, ook na een herstart van de tool.'},
+    {'key': PAGE_INTAKE, 'icon': '🎙️', 'titel': 'Intake',
+     'desc': 'Upload de opname van het intakegesprek: de tool schrijft het uit, vult het volledige '
+             'intakeverslag in en maakt er een verslag in de huisstijl van — jij leest na en corrigeert.'},
     {'key': PAGE_BELASTBAARHEID, 'icon': '📊', 'titel': 'Belastbaarheidsanalyse atleet',
      'desc': 'Volledige analyse van trainingslast en A:C ratio uit een Strava-export: '
              'kernbevindingen, blinde vlekken, trend en trainingsadvies.'},
@@ -1288,6 +1294,10 @@ def render_atleten_page():
             if c2.button('Openen', key=f"rec_open_{r['id']}", use_container_width=True):
                 _herstel_analyse(atleet, r)
                 goto(PAGE_BELASTBAARHEID)
+        elif r['soort'] == 'intake':
+            if c2.button('Openen', key=f"rec_open_{r['id']}", use_container_width=True):
+                _open_intake_record(r)
+                goto(PAGE_INTAKE)
         elif r['soort'] in ('prestatietest', 'voeding', 'document'):
             bestandsnaam = f"{atleet['naam'].replace(' ', '_')}_{r['soort']}_{datum.replace(' ', '')}.json"
             c2.download_button('Download', data=json.dumps(r['data'], ensure_ascii=False, indent=2),
@@ -1309,6 +1319,241 @@ def render_atleten_page():
                 st.session_state.get('athletes', {}).pop(atleet['naam'], None)
                 st.session_state.pop(f"a_goals_{atleet['naam']}", None)
                 st.rerun()
+
+
+# ---------------------------------------------------------------------------
+# Intake: opname van het gesprek → verslag in de huisstijl, bewaard bij de atleet.
+# De formulierwaarden leven in session_state onder het prefix IK; de AI-output wordt
+# daarin gezet vóór het formulier getekend wordt, zodat de coach ze meteen kan nalezen.
+# ---------------------------------------------------------------------------
+IK = 'ik__'
+
+
+def _intake_naar_widgets(v):
+    v = intake.normaliseer(v)
+    for s, _, velden in intake.SECTIES:
+        for veld, _, _ in velden:
+            st.session_state[f'{IK}{s}__{veld}'] = v[s][veld]
+    st.session_state[f'{IK}samenvatting'] = v['samenvatting']
+    st.session_state[f'{IK}pakket'] = v['pakket']
+    st.session_state[f'{IK}advies'] = v['advies']
+    st.session_state[f'{IK}stappen'] = '\n'.join(v['volgende_stappen'])
+    st.session_state['intake_open_vragen'] = v['open_vragen']
+
+
+def _intake_uit_widgets():
+    v = {s: {veld: st.session_state.get(f'{IK}{s}__{veld}', '') for veld, _, _ in velden}
+         for s, _, velden in intake.SECTIES}
+    v['samenvatting'] = st.session_state.get(f'{IK}samenvatting', '')
+    v['pakket'] = st.session_state.get(f'{IK}pakket', '')
+    v['advies'] = st.session_state.get(f'{IK}advies', '')
+    v['volgende_stappen'] = st.session_state.get(f'{IK}stappen', '')
+    v['open_vragen'] = st.session_state.get('intake_open_vragen') or []
+    return intake.normaliseer(v)
+
+
+def _intake_wissen():
+    for k in [k for k in st.session_state if k.startswith(IK)]:
+        del st.session_state[k]
+    for k in ('intake_html', 'intake_record_id', 'intake_open_vragen', 'intake_flash', 'intake_tekst'):
+        st.session_state.pop(k, None)
+    st.session_state['intake_audio_nr'] = st.session_state.get('intake_audio_nr', 0) + 1
+
+
+def _open_intake_record(record):
+    data = record.get('data') or {}
+    _intake_naar_widgets(data.get('velden') or {})
+    st.session_state['intake_html'] = data.get('html')
+    st.session_state['intake_record_id'] = record['id']
+
+
+def _sport_uit_tekst(tekst):
+    """Vrije sportomschrijving uit het gesprek → een van de profielkeuzes."""
+    t = (tekst or '').lower()
+    if not t.strip():
+        return ''
+    for sport, woorden in (('Triatlon', ('triat', 'triath')),
+                           ('Lopen', ('lop', 'loop', 'run', 'marathon', 'trail')),
+                           ('Fietsen', ('fiets', 'wieler', 'cycl', 'gravel', 'mtb', 'mountainbike')),
+                           ('Zwemmen', ('zwem', 'swim'))):
+        if any(w in t for w in woorden):
+            return sport
+    return 'Andere'
+
+
+def _datum_uit_tekst(tekst):
+    """Enkel een volledige datum wordt een geboortedatum; een los jaartal verzinnen we niet aan."""
+    t = (tekst or '').strip()
+    m = re.search(r'\b(\d{1,2})[/.\-](\d{1,2})[/.\-](\d{4})\b', t)
+    if m:
+        d, mo, y = map(int, m.groups())
+    else:
+        m = re.search(r'\b(\d{4})-(\d{2})-(\d{2})\b', t)
+        if not m:
+            return None
+        y, mo, d = map(int, m.groups())
+    try:
+        return date(y, mo, d)
+    except ValueError:
+        return None
+
+
+def _bewaar_intake(v, html):
+    """Verslag bij de atleet zetten (profiel aanvullen + record) — geeft (atleet, fout) terug."""
+    if not store.beschikbaar():
+        return None, 'Opslag niet geconfigureerd — het verslag is gemaakt, maar niet bewaard.'
+    naam = v['algemeen']['naam'].strip()
+    if not naam:
+        return None, 'Vul de naam van de atleet in om het verslag te bewaren.'
+    huidig = st.session_state.get('atleet')
+    atleet = huidig if huidig and huidig['naam'].strip().lower() == naam.lower() else store.zoek_atleet_op_naam(naam)
+
+    # Het profiel krijgt wat de intake opleverde; lege velden overschrijven niets.
+    profiel = {'naam': naam}
+    sport = _sport_uit_tekst(v['algemeen']['sport'])
+    doel = v['doelen']['lange_termijn'] or v['doelen']['korte_termijn'] or v['doelen']['wedstrijden']
+    geb = _datum_uit_tekst(v['algemeen']['geboortejaar'])
+    samenvatting = '\n\n'.join(x for x in [v['samenvatting'], v['ervaring']['blessures']] if x.strip())
+    for k, w in (('sport', sport), ('doelen', intake._kort(doel, 90)), ('contact', v['algemeen']['contact']),
+                 ('geboortedatum', geb), ('intake', samenvatting)):
+        if w:
+            profiel[k] = w
+    rij = store.bewaar_atleet(profiel, atleet_id=atleet['id'] if atleet else None)
+    record = store.bewaar_record(rij['id'], 'intake', f"Intake {v['algemeen']['datum']}",
+                                 {'velden': v, 'html': html},
+                                 record_id=st.session_state.get('intake_record_id'))
+    st.session_state['intake_record_id'] = record.get('id')
+    _atleten.clear()
+    _kies_atleet(rij)
+    return rij, None
+
+
+def _verwerk_intake(audio=None, tekst=''):
+    """Opname of tekst → ingevulde formuliervelden. Geeft True bij succes."""
+    sleutel = intake.openai_sleutel()
+    atleet_naam = (st.session_state.get('atleet') or {}).get('naam', '')
+    coach_naam = st.session_state.get(f'{IK}coach__naam', '')
+    with st.status('Gesprek verwerken…', expanded=True) as status:
+        try:
+            if audio is not None:
+                st.write('Opname voorbereiden…')
+                transcript = intake.transcribeer(audio.getvalue(), audio.name, sleutel,
+                                                 hint=intake.transcriptie_hint(atleet_naam, coach_naam),
+                                                 voortgang=st.write)
+            else:
+                transcript = tekst
+            if len(transcript.strip()) < 40:
+                raise ValueError('Er kwam vrijwel geen tekst uit de opname. Is dit de juiste opname, '
+                                 'en staat er gesproken Nederlands op?')
+            st.write('Verslag invullen…')
+            v = intake.extraheer(transcript, sleutel, atleet_naam=atleet_naam)
+        except Exception as e:
+            status.update(label='Verwerken mislukt', state='error')
+            st.error(intake.leesbare_fout(e))
+            return False
+        status.update(label='Klaar — lees het verslag hieronder na en corrigeer waar nodig.',
+                      state='complete', expanded=False)
+    # De coachgegevens komen uit het formulier, niet uit het gesprek.
+    for veld in ('naam', 'email', 'gsm'):
+        v['coach'][veld] = st.session_state.get(f'{IK}coach__{veld}') or v['coach'][veld]
+    _intake_naar_widgets(v)
+    st.session_state['intake_html'] = None
+    st.session_state['intake_record_id'] = None
+    return True
+
+
+def _intake_sectie(s, velden):
+    inputs = [f for f in velden if f[2] == 'input']
+    for i in range(0, len(inputs), 2):
+        cols = st.columns(2)
+        for col, (veld, label, _) in zip(cols, inputs[i:i + 2]):
+            col.text_input(label, key=f'{IK}{s}__{veld}')
+    for veld, label, _ in velden:
+        if _ == 'area':
+            st.text_area(label, key=f'{IK}{s}__{veld}', height=80)
+
+
+def render_intake_page():
+    kop1, kop2 = st.columns([5, 1.2])
+    kop1.markdown('<div class="dm-page-title">🎙️ Intake</div>', unsafe_allow_html=True)
+    if kop2.button('Nieuwe intake', key='intake_nieuw', use_container_width=True):
+        _intake_wissen()
+        st.rerun()
+    st.caption('Upload de opname van het intakegesprek: de tool schrijft ze uit en vult het verslag in. '
+               'Jij leest na en corrigeert; daarna verschijnt het verslag in de huisstijl en wordt het '
+               'bij de atleet bewaard.')
+    if f'{IK}coach__naam' not in st.session_state:
+        _intake_naar_widgets(intake.leeg_intake())
+    flash = st.session_state.pop('intake_flash', None)
+    if flash:
+        st.success(flash)
+
+    # --- 1 · Gesprek ---------------------------------------------------------
+    st.markdown('##### 1 · Gesprek')
+    if not intake.openai_sleutel():
+        st.warning('Nog geen OpenAI-sleutel: voeg `OPENAI_API_KEY` toe aan de secrets van de app '
+                   '(Streamlit Cloud → Settings → Secrets). Tot dan vul je het verslag hieronder handmatig in.')
+    else:
+        tab_audio, tab_tekst = st.tabs(['Opname uploaden', 'Tekst plakken'])
+        with tab_audio:
+            nr = st.session_state.get('intake_audio_nr', 0)
+            up = st.file_uploader('Opname van het gesprek', type=intake.AUDIO_TYPES, key=f'intake_audio_{nr}',
+                                  help='m4a (iPhone Dictafoon), mp3, wav, mp4, … — tot 400 MB. '
+                                       'Een gesprek van een uur is in enkele minuten verwerkt.')
+            if up is not None and st.button('Gesprek verwerken', key='intake_verwerk_audio', type='primary'):
+                if _verwerk_intake(audio=up):
+                    st.session_state['intake_audio_nr'] = nr + 1
+        with tab_tekst:
+            tekst = st.text_area('Transcript of notities', key='intake_tekst', height=140,
+                                 placeholder='Bv. het transcript van een Teams-opname, of je eigen notities.')
+            if tekst.strip() and st.button('Tekst verwerken', key='intake_verwerk_tekst', type='primary'):
+                _verwerk_intake(tekst=tekst)
+        st.caption('De opname dient enkel om het transcript te maken en wordt daarna weggegooid; ook het '
+                   'transcript blijft niet bewaard — alleen het verslag. Laat de atleet vooraf weten dat het '
+                   'gesprek opgenomen en door OpenAI verwerkt wordt.')
+
+    # --- 2 · Nalezen ---------------------------------------------------------
+    st.markdown('##### 2 · Verslag nalezen')
+    open_vragen = st.session_state.get('intake_open_vragen') or []
+    if open_vragen:
+        st.info('**Nog na te vragen** (komt niet in het verslag):\n' + '\n'.join(f'- {q}' for q in open_vragen))
+    with st.form('intake_form'):
+        st.text_area('Samenvatting', key=f'{IK}samenvatting', height=100)
+        for s, titel, velden in intake.SECTIES:
+            if s == 'afspraken':
+                st.radio('Coachingpakket', [''] + list(intake.PAKKET_LABELS), key=f'{IK}pakket',
+                         format_func=lambda k: intake.PAKKET_LABELS.get(k, 'Nog te bepalen'), horizontal=True)
+            with st.expander(titel, expanded=s not in ('coach', 'facturatie', 'afspraken')):
+                _intake_sectie(s, velden)
+        st.text_area('Advies van de coach', key=f'{IK}advies', height=160,
+                     help='Voorstel van de tool op basis van het gesprek — pas aan in je eigen woorden.')
+        st.text_area('Volgende stappen (één per regel)', key=f'{IK}stappen', height=110)
+        if st.form_submit_button('Verslag maken & bewaren', type='primary', use_container_width=True):
+            v = _intake_uit_widgets()
+            html = intake.verslag_html(v)
+            st.session_state['intake_html'] = html
+            try:
+                rij, fout = _bewaar_intake(v, html)
+            except Exception as e:
+                rij, fout = None, f'Het verslag is gemaakt, maar bewaren lukte niet: {e}'
+            if fout:
+                st.warning(fout)
+            else:
+                st.session_state['intake_flash'] = f'Verslag bewaard bij {rij["naam"]} — zie ook de tegel Atleten.'
+                st.rerun()
+
+    # --- 3 · Verslag ---------------------------------------------------------
+    html = st.session_state.get('intake_html')
+    if html:
+        st.markdown('##### 3 · Verslag')
+        naam = (st.session_state.get(f'{IK}algemeen__naam') or 'atleet').strip().replace(' ', '_')
+        c1, c2 = st.columns([1, 3])
+        c1.download_button('Download (.html)', data=html, file_name=f'Intakeverslag_{naam}.html',
+                           mime='text/html', use_container_width=True, key='intake_dl')
+        c2.caption('PDF: klik "Bewaar als PDF" in het verslag, of open het in een nieuw tabblad en '
+                   'kies ⌘P → Bewaar als PDF. Aanpassen? Wijzig hierboven en klik opnieuw op '
+                   '"Verslag maken & bewaren".')
+        components.html(html, height=1250, scrolling=True)
 
 
 def render_analyse_sidebar():
@@ -1396,6 +1641,8 @@ def main():
 
     if page == PAGE_ATLETEN:
         render_atleten_page()
+    elif page == PAGE_INTAKE:
+        render_intake_page()
     elif page == PAGE_BELASTBAARHEID:
         render_belastbaarheid_page()
     elif page == PAGE_JAARPLANNING:

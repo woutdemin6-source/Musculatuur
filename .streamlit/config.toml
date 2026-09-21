@@ -1,9 +1,9 @@
-# De tool accepteert bewust enkel activities.csv (niet de volledige Strava-zip,
-# die door foto's/video's/losse activiteit-bestanden al snel honderden MB's is).
-# Zelfs jarenlange activities.csv-bestanden blijven doorgaans ruim onder 50MB,
-# dus een bescheiden limiet volstaat.
+# De limiet is afgestemd op de Intake-tool: een opname van een uur is als m4a (iPhone
+# Dictafoon) 30-60 MB, als wav tot een paar honderd MB. De belastbaarheidsanalyse
+# accepteert bewust enkel activities.csv (niet de volledige Strava-zip) en blijft daar
+# sowieso ruim onder.
 [server]
-maxUploadSize = 50
+maxUploadSize = 400
 
 # De prestatietest-suite (static/prestatietest.html) is een zelfstandige HTML-tool die
 # Streamlit hier enkel uitlevert, niet rendert. Bewust als echte pagina i.p.v. in een iframe:

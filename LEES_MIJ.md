@@ -25,11 +25,12 @@ Opent een lokale website (standaard op http://localhost:8501) met:
 - Meerdere atleten per sessie, wisselen via het zijmenu
 - Download-knop voor de ruwe cijfers (JSON)
 
-Na de login kom je op een **welkomstpagina met vier tegels**:
+Na de login kom je op een **welkomstpagina met zes tegels**:
 
 | Tegel | Wat het is | Waar de code zit |
 |---|---|---|
 | 👤 Atleten | Profiel per atleet: intake, analyses, A-doelen, testdocumenten — bewaard in de database | `app.py` + `store.py` |
+| 🎙️ Intake | Opname van het intakegesprek → uitgeschreven → volledig intakeverslag in de huisstijl | `app.py` + `intake.py` |
 | 📊 Belastbaarheidsanalyse atleet | Trainingslast + A:C ratio uit een Strava-export | `app.py` + `core.py` |
 | 🎯 Jaarplanning | Macro/mesocyclus per A-doel (Friel/Olbrecht) | `app.py` + `core.py` |
 | 🧪 Prestatietesten | Lactaattest, Critical Power, Critical Swim Speed, 3/5 km looptest | `static/prestatietest.html` |
@@ -57,7 +58,7 @@ een Postgres-database bij **Supabase** (project in Frankfurt, EU), via `store.py
   in de sessie gezet, dus na een herstart hoef je niets opnieuw te uploaden.
 
 Twee tabellen: `atleten` (basis + intake) en `records` (alles als JSON, met een `soort`:
-belastbaarheid / jaarplanning / prestatietest / voeding / document).
+intake / belastbaarheid / jaarplanning / prestatietest / voeding / document).
 
 **Configureren.** De app leest twee secrets. Lokaal in `.streamlit/secrets.toml` (staat in
 `.gitignore`), op Streamlit Cloud via app → Settings → Secrets:
@@ -74,6 +75,45 @@ Ontbreken ze, dan draait de app gewoon zonder opslag en zegt dat in de sidebar.
 > heeft de data — behandel de secrets als vertrouwelijk. De app zelf heeft één gedeeld
 > wachtwoord; nu er echte atleetgegevens achter staan, is een sterk wachtwoord geen luxe meer.
 > De prestatietest-suite (statisch bestand, buiten de login) bewaart zelf nog steeds niets.
+
+## Intake: opname van het gesprek → verslag (OpenAI)
+
+De tegel **Intake** maakt van een opgenomen intakegesprek (40-60 min, bv. iPhone Dictafoon) een
+volledig intakeverslag, in dezelfde opmaak als het lactaatrapport. Het verloop, in `intake.py`:
+
+1. **Transcriberen** — de opname wordt met ffmpeg (meegeleverd via `imageio-ffmpeg`) verkleind en in
+   stukken van 10 minuten geknipt, die parallel naar de OpenAI-transcriptie-API gaan
+   (`gpt-4o-transcribe`, Nederlands, met een woordenlijst van namen en vakjargon).
+2. **Invullen** — een GPT-model (`gpt-5`) vult uit het transcript de velden van het verslag in:
+   algemene gegevens, facturatie, doelen, ervaring & aandachtspunten, gekozen pakket, afwijkende
+   afspraken, een samenvatting, een **voorstel voor het advies van de coach** en de volgende stappen.
+   Wat niet besproken is, blijft leeg; wat de coach nog moet navragen, staat apart in "Nog na te
+   vragen" (komt niet in het verslag). Alternatief zonder opname: tab "Tekst plakken" (bv. een
+   Teams-transcript of eigen notities).
+3. **Nalezen** — alles staat in een formulier; de coach corrigeert en klikt "Verslag maken & bewaren".
+4. **Verslag** — voorblad, 11 genummerde secties (incl. de vaste teksten over pakketten,
+   TrainingPeaks, zones en afspraken), adviesblok en checklist. "Bewaar als PDF" gebruikt de
+   printfunctie van de browser (A4), net als de prestatietest-suite. Het verslag wordt als document
+   bij de atleet bewaard (profiel wordt aangemaakt of aangevuld: sport, doel, contact, samenvatting)
+   en kan later via Atleten → Openen opnieuw bekeken of aangepast worden.
+
+**Configureren.** Eén extra secret, zelfde plek als de Supabase-secrets:
+
+```toml
+OPENAI_API_KEY = "sk-…"
+# optioneel, enkel als een model niet beschikbaar is voor je account:
+# OPENAI_MODEL_TEKST = "gpt-5"
+# OPENAI_MODEL_AUDIO = "gpt-4o-transcribe"
+```
+
+Sleutel aanmaken op platform.openai.com → API keys; het verbruik wordt daar afgerekend (richtprijs:
+een uur gesprek ≈ €0,35 transcriptie + enkele centen voor het invullen). Zonder sleutel blijft de
+tegel bruikbaar als handmatig formulier.
+
+> **Privacy.** De opname en het transcript worden enkel in het geheugen verwerkt en nergens bewaard —
+> alleen het verslag gaat naar de database. De audio gaat wel naar OpenAI (VS) voor de verwerking;
+> een intake bevat gezondheidsinformatie, dus laat de atleet vooraf weten dat het gesprek opgenomen
+> en door een AI-dienst uitgeschreven wordt, en vraag toestemming.
 
 > **Let op bij de prestatietest-suite:** static-bestanden vallen **buiten** het wachtwoordscherm —
 > wie de directe URL kent, kan de suite openen. Dat is een bewuste afweging: de suite bewaart zelf
