@@ -19,6 +19,7 @@ import json
 import time
 import base64
 import importlib
+from datetime import date
 
 import numpy as np
 import pandas as pd
@@ -48,6 +49,21 @@ def _import_core():
 
 
 core = _import_core()
+
+
+def _import_store():
+    """Zelfde bescherming als _import_core: store.py is ook een lokale module die Streamlit
+    bewaakt en bij een deploy tijdelijk uit sys.modules kan halen."""
+    for _ in range(4):
+        try:
+            return importlib.import_module('store')
+        except KeyError:
+            sys.modules.pop('store', None)
+            time.sleep(0.2)
+    return importlib.import_module('store')
+
+
+store = _import_store()
 
 st.set_page_config(page_title='De Musculatuur — AI performance assistent', page_icon='💪', layout='wide')
 
@@ -415,6 +431,7 @@ def md_bold_to_html(text):
 # huisstijl-sidebar hieronder.
 # ---------------------------------------------------------------------------
 PAGE_HOME = 'home'
+PAGE_ATLETEN = 'atleten'
 PAGE_BELASTBAARHEID = 'belastbaarheid'
 PAGE_JAARPLANNING = 'jaarplanning'
 
@@ -428,6 +445,9 @@ PAGE_JAARPLANNING = 'jaarplanning'
 SUITE_URL = 'app/static/prestatietest.html'
 
 TOOLS = [
+    {'key': PAGE_ATLETEN, 'icon': '👤', 'titel': 'Atleten',
+     'desc': 'Profiel per atleet: intake, belastbaarheidsanalyses, jaarplanning en de documenten '
+             'uit de prestatietesten — alles bewaard, ook na een herstart van de tool.'},
     {'key': PAGE_BELASTBAARHEID, 'icon': '📊', 'titel': 'Belastbaarheidsanalyse atleet',
      'desc': 'Volledige analyse van trainingslast en A:C ratio uit een Strava-export: '
              'kernbevindingen, blinde vlekken, trend en trainingsadvies.'},
@@ -691,6 +711,7 @@ def analyze_and_store(uploaded_file, athlete_name, today):
         st.session_state.setdefault('athletes', {})
         st.session_state['athletes'][athlete_name] = {'summary': summary, 'fig': fig}
         st.session_state['active_athlete'] = athlete_name
+        _autosave_analyse(athlete_name, summary, daily, acwr)
 
 
 def render_dashboard(athlete_name):
@@ -993,6 +1014,7 @@ def render_jaarplanning_page():
                     else:
                         goals.append({'name': new_name, 'date': pd.Timestamp(new_date), 'discipline': new_disc})
                         st.session_state[goals_key] = goals
+                        _autosave_doelen(athlete_name, goals)
                         st.rerun()
         else:
             st.caption('Maximum van 3 A-doelen bereikt. Verwijder een doel om een ander toe te voegen.')
@@ -1005,6 +1027,7 @@ def render_jaarplanning_page():
                 if st.button('Verwijder', key=f'del_goal_{athlete_name}_{i}', use_container_width=True):
                     goals.pop(i)
                     st.session_state[goals_key] = goals
+                    _autosave_doelen(athlete_name, goals)
                     st.rerun()
 
     # --- Stap 3: het plan ---------------------------------------------------
@@ -1025,12 +1048,279 @@ def render_jaarplanning_page():
         st.caption('Nog geen A-doelen ingesteld. Voeg er hierboven toe om een voorgestelde jaarplanning te zien.')
 
 
+# ---------------------------------------------------------------------------
+# Atleetprofielen: alles wat een coach invoert wordt automatisch bewaard (zie store.py).
+# ---------------------------------------------------------------------------
+
+SPORTEN = ['Triatlon', 'Lopen', 'Fietsen', 'Zwemmen', 'Andere']
+SUITE_NAMEN = {'lactate': 'Lactaattest', 'cp': 'Critical Power', 'css': 'Critical Swim Speed',
+               'cv': '3/5 km looptest', 'voeding': 'Wedstrijdvoedingsplan'}
+
+
+@st.cache_data(ttl=120, show_spinner=False)
+def _atleten():
+    return store.lijst_atleten()
+
+
+def _herstel_analyse(atleet, record):
+    """Zet een bewaarde belastbaarheidsanalyse terug in de sessie, inclusief de grafiek, zodat
+    het dashboard meteen weer beschikbaar is zonder de export opnieuw te uploaden."""
+    data = record['data']
+    summary = data['summary']
+    naam = atleet['naam']
+    daily = pd.Series(data['daily']['values'], index=pd.to_datetime(data['daily']['dates']), dtype=float)
+    acwr = pd.Series([np.nan if v is None else v for v in data['acwr']['values']],
+                     index=pd.to_datetime(data['acwr']['dates']), dtype=float)
+    today = pd.Timestamp(summary.get('todayIso') or daily.index.max())
+    fig = make_chart(daily, acwr, today, naam)
+    st.session_state.setdefault('athletes', {})[naam] = {'summary': summary, 'fig': fig}
+    st.session_state['active_athlete'] = naam
+
+
+def _laad_atleet_in_sessie(atleet):
+    """Bij het kiezen van een atleet: laatste analyse en A-doelen uit de opslag halen, tenzij
+    ze deze sessie al in het geheugen staan (dan is die versie de nieuwste)."""
+    naam = atleet['naam']
+    st.session_state['jp_athlete'] = naam
+    if naam not in st.session_state.get('athletes', {}):
+        rec = store.laatste_record(atleet['id'], 'belastbaarheid')
+        if rec:
+            _herstel_analyse(atleet, rec)
+    goals_key = f'a_goals_{naam}'
+    if goals_key not in st.session_state:
+        rec = store.laatste_record(atleet['id'], 'jaarplanning')
+        doelen = (rec or {}).get('data', {}).get('goals', [])
+        st.session_state[goals_key] = [
+            {'name': g['name'], 'date': pd.Timestamp(g['date']), 'discipline': g.get('discipline', '')}
+            for g in doelen
+        ]
+
+
+def _autosave_analyse(athlete_name, summary, daily, acwr):
+    """Na elke analyse: bewaren bij de geselecteerde atleet. De laatste 200 dagen van de
+    dag- en A:C-reeks gaan mee, zodat de grafiek (6 maanden) later exact herbouwd kan worden."""
+    atleet = st.session_state.get('atleet')
+    if not (store.beschikbaar() and atleet and atleet['naam'] == athlete_name):
+        return
+    vanaf = daily.index.max() - pd.Timedelta(days=200)
+    d = daily[daily.index >= vanaf]
+    a = acwr[acwr.index >= vanaf]
+    data = {
+        'summary': summary,
+        'daily': {'dates': [x.strftime('%Y-%m-%d') for x in d.index], 'values': d.tolist()},
+        'acwr': {'dates': [x.strftime('%Y-%m-%d') for x in a.index],
+                 'values': [None if pd.isna(v) else float(v) for v in a.values]},
+    }
+    try:
+        store.bewaar_record(atleet['id'], 'belastbaarheid', f"Analyse t/m {summary['reportDate']}", data)
+        st.toast(f'Analyse bewaard bij {athlete_name}.', icon='💾')
+    except Exception as e:
+        st.warning(f'De analyse is klaar maar kon niet bewaard worden: {e}')
+
+
+def _autosave_doelen(athlete_name, goals):
+    """A-doelen: één record per atleet dat telkens overschreven wordt."""
+    atleet = st.session_state.get('atleet')
+    if not (store.beschikbaar() and atleet and atleet['naam'] == athlete_name):
+        return
+    data = {'goals': [{'name': g['name'], 'date': pd.Timestamp(g['date']).strftime('%Y-%m-%d'),
+                       'discipline': g.get('discipline', '')} for g in goals]}
+    try:
+        bestaand = store.laatste_record(atleet['id'], 'jaarplanning')
+        store.bewaar_record(atleet['id'], 'jaarplanning', 'A-doelen', data,
+                            record_id=bestaand['id'] if bestaand else None)
+    except Exception as e:
+        st.warning(f'A-doelen konden niet bewaard worden: {e}')
+
+
+GEEN_ATLEET = '— geen —'
+
+
+def _kies_atleet(rij):
+    st.session_state['atleet'] = store.haal_atleet(rij['id'])
+    _laad_atleet_in_sessie(st.session_state['atleet'])
+    # De sidebar-selectbox is op dit moment al getekend, dus zijn waarde kan hier niet meer
+    # gezet worden. De selector pikt deze vlag op vóór hij zichzelf tekent, in de volgende run.
+    st.session_state['atleet_pending'] = rij['naam']
+
+
+def render_atleet_selector():
+    """Sidebar: de actieve atleet. Geldt voor alle tools."""
+    st.markdown('<div class="dm-sidebar-section">Atleet</div>', unsafe_allow_html=True)
+    if not store.beschikbaar():
+        st.caption('Opslag niet geconfigureerd — alles werkt, maar niets wordt bewaard na een '
+                   'herstart. Zie de tegel "Atleten".')
+        return
+    try:
+        rijen = _atleten()
+    except Exception as e:
+        st.caption(f'Opslag onbereikbaar: {e}')
+        return
+    namen = [GEEN_ATLEET] + [a['naam'] for a in rijen]
+    # Een keuze die elders gemaakt is (Atleten-pagina, nieuw profiel) hier in de widget zetten,
+    # anders wint de oude widget-waarde van de index en zou de keuze meteen weer wegvallen.
+    pending = st.session_state.pop('atleet_pending', None)
+    if pending is not None:
+        st.session_state['atleet_select'] = pending if pending in namen else GEEN_ATLEET
+    huidig = (st.session_state.get('atleet') or {}).get('naam')
+    # Zodra de widget een sessiewaarde heeft, bepaalt die de keuze; dan ook nog een index
+    # meegeven levert enkel een waarschuwing op in de logs.
+    extra = {} if 'atleet_select' in st.session_state else {'index': namen.index(huidig) if huidig in namen else 0}
+    keuze = st.selectbox('Actieve atleet', namen, key='atleet_select',
+                          label_visibility='collapsed', **extra)
+    if keuze != GEEN_ATLEET and keuze != huidig:
+        _kies_atleet(next(a for a in rijen if a['naam'] == keuze))
+        st.rerun()
+    elif keuze == GEEN_ATLEET and huidig:
+        st.session_state['atleet'] = None
+        st.rerun()
+    if st.button('Profiel openen' if huidig else '＋ Nieuwe atleet', key='naar_atleten',
+                 use_container_width=True):
+        goto(PAGE_ATLETEN)
+
+
+def render_atleten_page():
+    st.markdown('<div class="dm-page-title">👤 Atleten</div>', unsafe_allow_html=True)
+    if not store.beschikbaar():
+        st.warning('Opslag is nog niet geconfigureerd. Voeg `SUPABASE_URL` en `SUPABASE_KEY` toe '
+                   'aan de secrets van de app (Streamlit Cloud → app → Settings → Secrets). '
+                   'Tot dan werkt alles gewoon, maar blijft er niets bewaard na een herstart.')
+        return
+
+    atleet = st.session_state.get('atleet')
+    try:
+        alle = _atleten()
+    except Exception as e:
+        st.error(f'Opslag onbereikbaar: {e}')
+        return
+
+    with st.expander('＋ Nieuwe atleet', expanded=not atleet and not alle):
+        with st.form('nieuwe_atleet', clear_on_submit=True):
+            c1, c2 = st.columns([2, 1])
+            naam = c1.text_input('Naam')
+            geb = c2.date_input('Geboortedatum', value=None, min_value=date(1940, 1, 1))
+            c3, c4 = st.columns(2)
+            sport = c3.selectbox('Hoofdsport', SPORTEN)
+            contact = c4.text_input('Contact (e-mail / telefoon)')
+            doelen = st.text_input('Doelen (kort)', placeholder='bv. Ironman Nice 2027')
+            if st.form_submit_button('Atleet aanmaken', use_container_width=True):
+                if not naam.strip():
+                    st.error('Een naam is het minimum.')
+                else:
+                    rij = store.bewaar_atleet({'naam': naam.strip(), 'geboortedatum': geb, 'sport': sport,
+                                               'contact': contact, 'doelen': doelen})
+                    _atleten.clear()
+                    _kies_atleet(rij)
+                    st.rerun()
+
+    if not atleet:
+        if alle:
+            st.markdown('##### Alle atleten')
+            for a in alle:
+                c1, c2 = st.columns([4, 1])
+                extra = ' · '.join(x for x in [a.get('sport'), a.get('doelen')] if x)
+                c1.markdown(f"**{a['naam']}**" + (f' — {extra}' if extra else ''))
+                if c2.button('Openen', key=f"open_atleet_{a['id']}", use_container_width=True):
+                    _kies_atleet(a)
+                    st.rerun()
+        else:
+            st.caption('Nog geen atleten. Maak er hierboven een aan.')
+        return
+
+    # --- Profiel van de geselecteerde atleet -------------------------------
+    st.markdown(f"##### {atleet['naam']}")
+    with st.form('profiel'):
+        c1, c2 = st.columns([2, 1])
+        naam = c1.text_input('Naam', value=atleet.get('naam') or '')
+        geb_val = pd.to_datetime(atleet['geboortedatum']).date() if atleet.get('geboortedatum') else None
+        geb = c2.date_input('Geboortedatum', value=geb_val, min_value=date(1940, 1, 1))
+        c3, c4 = st.columns(2)
+        sport = c3.selectbox('Hoofdsport', SPORTEN,
+                             index=SPORTEN.index(atleet['sport']) if atleet.get('sport') in SPORTEN else 0)
+        contact = c4.text_input('Contact', value=atleet.get('contact') or '')
+        doelen = st.text_input('Doelen', value=atleet.get('doelen') or '')
+        intake = st.text_area('Intake', value=atleet.get('intake') or '', height=180,
+                              placeholder='Klachten, blessurehistoriek, beschikbare uren, context, afspraken…')
+        if st.form_submit_button('Profiel bewaren', use_container_width=True):
+            rij = store.bewaar_atleet({'naam': naam.strip(), 'geboortedatum': geb, 'sport': sport,
+                                       'contact': contact, 'doelen': doelen, 'intake': intake},
+                                      atleet_id=atleet['id'])
+            _atleten.clear()
+            st.session_state['atleet'] = rij
+            st.success('Profiel bewaard.')
+
+    # --- Documenten ---------------------------------------------------------
+    st.divider()
+    st.markdown('##### Documenten')
+    st.caption('Belastbaarheidsanalyses en A-doelen komen hier vanzelf bij. Testen en voedingsplannen '
+               'uit de prestatietest-suite voeg je toe via "Project opslaan" daar → JSON hier uploaden. '
+               'Downloaden en in de suite "Project laden" brengt ze weer terug.')
+
+    nr = st.session_state.get('doc_upload_nr', 0)
+    up = st.file_uploader('Export uit de prestatietest-suite (.json)', type=['json'], key=f'doc_upload_{nr}')
+    if up is not None:
+        try:
+            doc = json.loads(up.getvalue().decode('utf-8'))
+            tt = doc.get('testType', '')
+        except Exception:
+            st.error('Dit is geen geldig JSON-bestand uit de suite.')
+        else:
+            soort = 'voeding' if tt == 'voeding' else 'prestatietest'
+            adat = (doc.get('athlete') or {}).get('date') or ''
+            anaam = (doc.get('athlete') or {}).get('name') or ''
+            titel = f"{SUITE_NAMEN.get(tt, 'Test')} {adat}".strip()
+            if anaam and anaam.strip().lower() != atleet['naam'].strip().lower():
+                st.warning(f'Dit document is gemaakt voor "{anaam}", maar wordt bij **{atleet["naam"]}** bewaard.')
+            if st.button(f'"{titel}" toevoegen aan {atleet["naam"]}', key='doc_add', type='primary'):
+                store.bewaar_record(atleet['id'], soort, titel, doc)
+                st.session_state['doc_upload_nr'] = nr + 1
+                st.rerun()
+
+    records = store.lijst_records(atleet['id'], met_data=True)
+    if not records:
+        st.caption('Nog geen documenten voor deze atleet.')
+    for r in records:
+        c1, c2, c3 = st.columns([5, 1.2, 1])
+        datum = pd.to_datetime(r['aangemaakt_op']).strftime('%d %b %Y')
+        c1.markdown(f"**{store.SOORTEN.get(r['soort'], r['soort'])}** — {r.get('titel') or ''}  \n"
+                    f"<span style='color:{DM_MUTED};font-size:0.8rem'>{datum}</span>", unsafe_allow_html=True)
+        if r['soort'] == 'belastbaarheid':
+            if c2.button('Openen', key=f"rec_open_{r['id']}", use_container_width=True):
+                _herstel_analyse(atleet, r)
+                goto(PAGE_BELASTBAARHEID)
+        elif r['soort'] in ('prestatietest', 'voeding', 'document'):
+            bestandsnaam = f"{atleet['naam'].replace(' ', '_')}_{r['soort']}_{datum.replace(' ', '')}.json"
+            c2.download_button('Download', data=json.dumps(r['data'], ensure_ascii=False, indent=2),
+                               file_name=bestandsnaam, mime='application/json',
+                               key=f"rec_dl_{r['id']}", use_container_width=True)
+        if c3.button('Verwijder', key=f"rec_del_{r['id']}", use_container_width=True,
+                     help='Verwijdert dit document definitief'):
+            store.verwijder_record(r['id'])
+            st.rerun()
+
+    with st.expander('Atleet verwijderen'):
+        st.caption('Verwijdert het profiel én alle documenten. Dit kan niet ongedaan gemaakt worden.')
+        if st.checkbox(f'Ja, verwijder {atleet["naam"]} definitief', key='del_atleet_ok'):
+            if st.button('Definitief verwijderen', key='del_atleet_btn'):
+                store.verwijder_atleet(atleet['id'])
+                _atleten.clear()
+                st.session_state['atleet'] = None
+                st.session_state['atleet_pending'] = GEEN_ATLEET
+                st.session_state.get('athletes', {}).pop(atleet['naam'], None)
+                st.session_state.pop(f"a_goals_{atleet['naam']}", None)
+                st.rerun()
+
+
 def render_analyse_sidebar():
     """Upload-flow: hoort enkel bij de Belastbaarheidsanalyse-tool."""
     st.markdown('<div class="dm-sidebar-section">Nieuwe analyse</div>', unsafe_allow_html=True)
 
     st.markdown('<div class="dm-step">① Naam atleet</div>', unsafe_allow_html=True)
-    athlete_name = st.text_input('Naam atleet', placeholder='bv. Jan Peeters', label_visibility='collapsed')
+    # Staat er een atleet geselecteerd, dan is dat de naam — zo hangt de analyse meteen aan
+    # het juiste profiel. Aanpassen kan nog steeds.
+    geselecteerd = (st.session_state.get('atleet') or {}).get('naam', '')
+    athlete_name = st.text_input('Naam atleet', value=geselecteerd, placeholder='bv. Jan Peeters',
+                                 label_visibility='collapsed')
 
     st.markdown('<div class="dm-step">② Upload activities.csv</div>', unsafe_allow_html=True)
     uploaded_file = st.file_uploader('activities.csv', type=['csv'], label_visibility='collapsed')
@@ -1085,26 +1375,28 @@ def main():
     with st.sidebar:
         # Op de startpagina hoeft het logo nergens heen te leiden; elders is het de weg terug.
         render_logo(clickable=page != PAGE_HOME)
-        # Enkel de Belastbaarheidsanalyse heeft eigen sidebar-bediening; op de andere
-        # pagina's zou een extra scheidingslijn een leeg blok afbakenen.
-        heeft_eigen_sidebar = page == PAGE_BELASTBAARHEID
         if page != PAGE_HOME:
             if st.button('← Alle tools', key='terug_home', use_container_width=True):
                 goto(PAGE_HOME)
-            if heeft_eigen_sidebar:
-                st.markdown('<hr class="dm-sidebar-divider" />', unsafe_allow_html=True)
 
-        if heeft_eigen_sidebar:
+        # De actieve atleet geldt voor álle tools: analyses, A-doelen en documenten worden
+        # automatisch aan dit profiel gekoppeld.
+        st.markdown('<hr class="dm-sidebar-divider" />', unsafe_allow_html=True)
+        render_atleet_selector()
+
+        # Enkel de Belastbaarheidsanalyse heeft eigen sidebar-bediening.
+        if page == PAGE_BELASTBAARHEID:
+            st.markdown('<hr class="dm-sidebar-divider" />', unsafe_allow_html=True)
             render_analyse_sidebar()
-        elif page == PAGE_HOME:
-            st.caption('Kies rechts een tool om te starten.')
 
         st.markdown('<hr class="dm-sidebar-divider" />', unsafe_allow_html=True)
         if st.button('Uitloggen', use_container_width=True):
             st.session_state['authed'] = False
             st.rerun()
 
-    if page == PAGE_BELASTBAARHEID:
+    if page == PAGE_ATLETEN:
+        render_atleten_page()
+    elif page == PAGE_BELASTBAARHEID:
         render_belastbaarheid_page()
     elif page == PAGE_JAARPLANNING:
         render_jaarplanning_page()

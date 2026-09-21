@@ -265,10 +265,13 @@ textarea.in:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px r
 
   <!-- top bar -->
   <div class="topbar no-print">
-    <div class="brand">
+    <!-- Het logo brengt je terug naar de tool-keuze van de webapp. Relatief pad ("../../")
+         zodat het zowel lokaal (/app/static/) als op Streamlit Cloud (/~/+/app/static/) op de
+         root van de app uitkomt. -->
+    <a class="brand" href="../../" title="Terug naar alle tools" style="text-decoration:none;color:inherit">
       <img id="brandLogo" alt="logo">
       <div class="btxt"><b id="brandName">De Musculatuur</b><span id="brandSub">Lactaattest</span></div>
-    </div>
+    </a>
     <div class="spacer"></div>
     <div class="tag" id="topTag">Lactaat Rapport Generator</div>
   </div>

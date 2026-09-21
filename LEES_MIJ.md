@@ -29,6 +29,7 @@ Na de login kom je op een **welkomstpagina met vier tegels**:
 
 | Tegel | Wat het is | Waar de code zit |
 |---|---|---|
+| 👤 Atleten | Profiel per atleet: intake, analyses, A-doelen, testdocumenten — bewaard in de database | `app.py` + `store.py` |
 | 📊 Belastbaarheidsanalyse atleet | Trainingslast + A:C ratio uit een Strava-export | `app.py` + `core.py` |
 | 🎯 Jaarplanning | Macro/mesocyclus per A-doel (Friel/Olbrecht) | `app.py` + `core.py` |
 | 🧪 Prestatietesten | Lactaattest, Critical Power, Critical Swim Speed, 3/5 km looptest | `static/prestatietest.html` |
@@ -41,6 +42,38 @@ werken de printbare atleet-verslagen (A4) en de deep-links naar een specifiek on
 
 Formules en codestructuur van die suite staan in `docs/FORMULES.md` en
 `docs/ARCHITECTUUR-prestatietest.md`.
+
+## Opslag: atleetprofielen (Supabase)
+
+Streamlit Cloud bewaart zelf niets tussen herstarts. Daarom gaat alles wat een coach invoert naar
+een Postgres-database bij **Supabase** (project in Frankfurt, EU), via `store.py`:
+
+- **Sidebar → Atleet**: de actieve atleet geldt voor álle tools. Analyses, A-doelen en documenten
+  worden automatisch aan dat profiel gekoppeld — er is geen "opslaan"-knop nodig.
+- **Tegel Atleten**: nieuw profiel aanmaken, basisgegevens + intake bewerken, documenten bekijken,
+  downloaden of verwijderen. Exports uit de prestatietest-suite ("Project opslaan" → JSON) upload
+  je hier; "Download" + "Project laden" in de suite brengt ze weer terug.
+- Bij het kiezen van een atleet worden de laatste analyse (inclusief grafiek) en de A-doelen weer
+  in de sessie gezet, dus na een herstart hoef je niets opnieuw te uploaden.
+
+Twee tabellen: `atleten` (basis + intake) en `records` (alles als JSON, met een `soort`:
+belastbaarheid / jaarplanning / prestatietest / voeding / document).
+
+**Configureren.** De app leest twee secrets. Lokaal in `.streamlit/secrets.toml` (staat in
+`.gitignore`), op Streamlit Cloud via app → Settings → Secrets:
+
+```toml
+SUPABASE_URL = "https://<project>.supabase.co"
+SUPABASE_KEY = "<api-sleutel>"
+```
+
+Ontbreken ze, dan draait de app gewoon zonder opslag en zegt dat in de sidebar.
+
+> **Privacy.** Dit zijn persoonsgegevens: naam, geboortedatum, contact, trainings- en testdata.
+> De databasesleutel blijft server-side en komt nooit in de browser, maar wie de sleutel heeft,
+> heeft de data — behandel de secrets als vertrouwelijk. De app zelf heeft één gedeeld
+> wachtwoord; nu er echte atleetgegevens achter staan, is een sterk wachtwoord geen luxe meer.
+> De prestatietest-suite (statisch bestand, buiten de login) bewaart zelf nog steeds niets.
 
 > **Let op bij de prestatietest-suite:** static-bestanden vallen **buiten** het wachtwoordscherm —
 > wie de directe URL kent, kan de suite openen. Dat is een bewuste afweging: de suite bewaart zelf
