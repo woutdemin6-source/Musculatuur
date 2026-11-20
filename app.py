@@ -433,6 +433,21 @@ div[data-testid="stAlert"] {{ border-radius: 14px; border: 1px solid var(--line)
 .dm-zones td {{ padding: .5rem .6rem; border-bottom: 1px solid var(--line); color: var(--text); font-variant-numeric: tabular-nums; }}
 .dm-zones tr:last-child td {{ border-bottom: none; }}
 [data-testid="stCustomComponentV1"], iframe[title^="dm_prestatietest"] {{ border: none; }}
+.dm-traject {{ display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; background: var(--surface);
+    border: 1px solid var(--line); border-radius: 999px; padding: .45rem .5rem .45rem 1.2rem; margin: .4rem 0 1.4rem; box-shadow: var(--shadow); }}
+.dm-traject-who {{ font-size: .72rem; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }}
+.dm-tsteps {{ display: flex; gap: .3rem; flex: 1; flex-wrap: wrap; }}
+.dm-tstep {{ display: flex; align-items: center; gap: .5rem; padding: .4rem .85rem; border-radius: 999px; font-size: .85rem;
+    font-weight: 600; color: var(--muted); }}
+.dm-tstep small {{ font-size: .68rem; font-weight: 500; margin-left: .35rem; color: var(--faint); }}
+.dm-tstep .n {{ width: 22px; height: 22px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+    font-size: .72rem; font-weight: 700; background: var(--surface-2); color: var(--muted); }}
+.dm-tstep.done {{ color: var(--text); }}
+.dm-tstep.done .n {{ background: var(--green-soft); color: var(--ok); }}
+.dm-tstep.active {{ background: var(--wine); color: #fff; }}
+.dm-tstep.active small {{ color: rgba(255,255,255,.7); }}
+.dm-tstep.active .n {{ background: #fff; color: var(--wine); }}
+.dm-cta {{ border-left: 4px solid var(--green); }}
 </style>
 """
 
@@ -904,13 +919,8 @@ def render_dashboard(athlete_name):
     st.divider()
     st.info(f'Wil je hieruit een jaarplanning opbouwen? Open de **Jaarplanning**-tool — die neemt de '
             f'belastbaarheid van {athlete_name} automatisch mee als startpunt.', icon='🎯')
-    if st.button('Naar Jaarplanning', key='naar_jaarplanning', use_container_width=True):
-        st.session_state['jp_athlete'] = athlete_name
-        # Zet meteen de juiste bron klaar, anders landt de coach op een upload-scherm
-        # terwijl de analyse van deze atleet er al is.
-        st.session_state['jp_bron'] = JP_BRON_ANALYSE
-        st.session_state['jp_pick'] = athlete_name
-        goto(PAGE_JAARPLANNING)
+    if st.button('Verder: jaarplanning →', key='naar_jaarplanning', type='primary', use_container_width=True):
+        _naar_jaarplanning(athlete_name)
 
     with st.expander('Methodologie & datakwaliteit'):
         dq = summary['dataQuality']
@@ -1003,8 +1013,156 @@ def render_belastbaarheid_readout(bel):
     """, unsafe_allow_html=True)
 
 
+# ---------------------------------------------------------------------------
+# Integratieve route: intake → belastbaarheid (optioneel) → jaarplanning → trajectverslag
+# De tools blijven elk afzonderlijk bruikbaar; met een actieve atleet tonen ze daarnaast deze
+# route, zodat een coach de stappen na elkaar doorloopt en afsluit met één verslag.
+# ---------------------------------------------------------------------------
+TRAJECT_STAPPEN = [('intake', 'Intake'), ('belastbaarheid', 'Belastbaarheid'),
+                   ('jaarplanning', 'Jaarplanning'), ('verslag', 'Trajectverslag')]
+
+
+def render_traject(huidig):
+    """Trajectbalk bovenaan intake, belastbaarheid en jaarplanning (enkel met een actieve atleet)."""
+    atleet = st.session_state.get('atleet')
+    if not atleet:
+        return
+    naam = atleet['naam']
+    status = {
+        'intake': _intake_record(atleet) is not None,
+        'belastbaarheid': naam in st.session_state.get('athletes', {}),
+        'jaarplanning': bool(st.session_state.get(f'a_goals_{naam}')),
+        'verslag': bool(st.session_state.get(f'traject_html_{naam}')),
+    }
+    items = ''
+    for i, (key, label) in enumerate(TRAJECT_STAPPEN, start=1):
+        klasse = 'active' if key == huidig else ('done' if status[key] else '')
+        teken = '✓' if status[key] and key != huidig else str(i)
+        optioneel = '<small>optioneel</small>' if key == 'belastbaarheid' else ''
+        items += f'<div class="dm-tstep {klasse}"><span class="n">{teken}</span><span>{label}{optioneel}</span></div>'
+    st.markdown(f'<div class="dm-traject"><div class="dm-traject-who">Traject · {intake._e(naam)}</div>'
+                f'<div class="dm-tsteps">{items}</div></div>', unsafe_allow_html=True)
+
+
+def _naar_jaarplanning(naam):
+    st.session_state['jp_athlete'] = naam
+    if naam in st.session_state.get('athletes', {}):
+        # Meteen de juiste bron klaarzetten, anders landt de coach op een upload-scherm
+        # terwijl de analyse van deze atleet er al is.
+        st.session_state['jp_bron'] = JP_BRON_ANALYSE
+        st.session_state['jp_pick'] = naam
+    goto(PAGE_JAARPLANNING)
+
+
+_FASE_KLEUR = {'transitie': '#B4A399', 'basis1': '#D9B48F', 'basis2': '#D9B48F', 'basis3': '#D9B48F',
+               'opbouw1': '#63B995', 'opbouw2': '#63B995', 'piek': '#9A4A3A',
+               'taper_afbouw': '#4F000B', 'wedstrijdweek': '#4F000B'}
+
+
+def traject_html(intake_v, plan, bel=None, summary=None):
+    """Eén verslag voor de atleet: de intake, aangevuld met waar hij nu staat (belastbaarheid, als
+    die er is) en de jaarplanning — meteen na de doelen, in dezelfde huisstijl."""
+    e = intake._e
+    extra = ''
+    if bel and bel.get('current') is not None:
+        level, status = belastbaarheid_status(bel['current'])
+        stats = [('A:C ratio', fmt(bel['current'], 1), level)]
+        p3 = ((summary or {}).get('periods') or {}).get('3m')
+        if p3:
+            stats += [('Sessies · 3 mnd', str(p3['sessies']), ''), ('Uren · 3 mnd', fmt(p3['uren'], 0), ''),
+                      ('Km · 3 mnd', fmt(p3['km'], 0), '')]
+        stat_html = ''.join(f'<div class="tv-stat {t}"><div class="k">{k}</div><div class="v">{v}</div></div>'
+                            for k, v, t in stats)
+        advies = ''.join(f'<div class="tv-advies"><b>{e(a["title"])}</b><span>{e(a["text"])}</span></div>'
+                         for a in [x for x in ((summary or {}).get('advies') or [])
+                                   if not x.get('title', '').startswith('Heropstart')][:2])
+        # (de 'heropstart'-signalen zijn coach-informatie over blinde vlekken, niet voor de atleet)
+        extra += (f'<div class="rsec"><h3 data-n="0">Waar sta je nu</h3>'
+                  f'<p>Op basis van je trainingsdata: <b>{e(status)}</b>. Dat is het vertrekpunt van je planning.</p>'
+                  f'<div class="tv-stats">{stat_html}</div>{advies}</div>')
+
+    if plan and plan.get('goals'):
+        aandacht = ''
+        if intake_v:
+            for k, w in (('Beschikbaarheid', intake_v['ervaring']['beschikbaarheid']),
+                         ('Aandachtspunten', intake_v['ervaring']['blessures'])):
+                if str(w or '').strip():
+                    aandacht += f'<div class="tv-intake"><b>{k}:</b> {e(w)}</div>'
+        per_doel = ''
+        for g in plan['goals']:
+            blokken = [b for b in plan['blocks'] if b['doel'] == g['name']]
+            rijen = ''.join(
+                f'<div class="tv-block" style="--fase:{_FASE_KLEUR.get(b["fase_key"], "#D8BFAF")}">'
+                f'<div class="tv-fase">{e(b["fase"])}<small>{b["start"].strftime("%d/%m")} – '
+                f'{b["einde"].strftime("%d/%m/%Y")} · {b["weken"]} wk</small></div>'
+                f'<div><div class="tv-meta">Volume {e(b["volume"])} · intensiteit {e(b["intensiteit"])}</div>'
+                f'<div class="tv-focus">{e(b["focus"])}</div></div></div>' for b in blokken)
+            per_doel += (f'<div class="tv-goal">{e(g["name"])}<small>{pd.Timestamp(g["date"]).strftime("%d/%m/%Y")}'
+                         f' · {g.get("weken_beschikbaar", "")} weken voorbereiding</small></div>{rijen}')
+        extra += (f'<div class="rsec pagebreak"><h3 data-n="0">Jouw jaarplanning</h3>'
+                  f'<p>Terugwerkend gepland vanaf je wedstrijd(en): eerst een brede basis, dan specifieker '
+                  f'opbouwen, en een taper van twee weken om fris aan de start te staan. Je coach vertaalt '
+                  f'elke fase naar concrete trainingen.</p>{aandacht}{per_doel}</div>')
+
+    v = intake_v or intake.leeg_intake()
+    return intake.verslag_html(v, extra_html=extra, titel='Jouw traject',
+                               eyebrow='Intake · Belastbaarheid · Jaarplanning' if extra.count('Waar sta je nu')
+                               else 'Intake · Jaarplanning')
+
+
+def render_trajectverslag(atleet_naam, intake_v, plan, bel, titel='Trajectverslag voor de atleet', sleutel='jp'):
+    """Eén klik: intake + belastbaarheid + jaarplanning samen in één verslag voor de atleet."""
+    st.divider()
+    st.markdown(f'##### {titel}')
+    if not intake_v:
+        st.markdown('<div class="dm-card dm-card-note"><div class="dm-card-title">Eerst een intake nodig</div>'
+                    '<p style="margin:0;color:var(--muted)">Het trajectverslag bouwt verder op het intakeverslag. '
+                    'Maak eerst een intake voor deze atleet — daarna komen doelen, belastbaarheid en jaarplanning '
+                    'hier samen in één verslag.</p></div>', unsafe_allow_html=True)
+        return
+    inhoud = ['intake & doelen', 'belastbaarheid' if bel else None, 'jaarplanning']
+    st.markdown('<div class="dm-card dm-cta"><div><div class="dm-card-title" style="margin-bottom:.3rem">'
+                'Alles in één verslag</div><p style="margin:0;color:var(--muted)">'
+                + ' · '.join(x for x in inhoud if x)
+                + (' — zonder Strava-analyse valt het belastbaarheidsdeel gewoon weg.' if not bel else '')
+                + '</p></div></div>', unsafe_allow_html=True)
+    key = f'traject_html_{atleet_naam}'
+    atleet = st.session_state.get('atleet')
+    eigen = bool(atleet and atleet['naam'] == atleet_naam)
+    # Na een herstart: de laatst bewaarde versie terug tonen
+    if key not in st.session_state and eigen and store.beschikbaar():
+        try:
+            rec = store.laatste_record(atleet['id'], 'traject')
+            if rec and (rec.get('data') or {}).get('html'):
+                st.session_state[key] = rec['data']['html']
+        except Exception:
+            pass
+    label = 'Trajectverslag opnieuw maken' if st.session_state.get(key) else 'Trajectverslag maken'
+    if st.button(label, type='primary', key=f'traject_maak_{sleutel}', use_container_width=True):
+        summary = (st.session_state.get('athletes', {}).get(atleet_naam) or {}).get('summary')
+        html = traject_html(intake_v, plan, bel=bel, summary=summary)
+        st.session_state[key] = html
+        if eigen and store.beschikbaar():
+            try:
+                store.bewaar_record(atleet['id'], 'traject', f'Trajectverslag {date.today().strftime("%d/%m/%Y")}',
+                                    {'html': html})
+                st.toast(f'Trajectverslag bewaard bij {atleet_naam}.')
+            except Exception as ex:
+                st.warning(f'Verslag gemaakt, maar niet bewaard. {store.leesbare_fout(ex)}')
+    html = st.session_state.get(key)
+    if html:
+        c1, c2 = st.columns([1, 2])
+        c1.download_button('Download trajectverslag (.html)', data=html, use_container_width=True,
+                           file_name=f"Trajectverslag_{atleet_naam.replace(' ', '_')}.html", mime='text/html',
+                           key=f'traject_dl_{sleutel}')
+        c2.caption('PDF: klik in het verslag op "Bewaar als PDF". Iets aangepast in intake, analyse of doelen? '
+                   'Klik op "Trajectverslag opnieuw maken".')
+        components.html(html, height=1250, scrolling=True)
+
+
 def render_jaarplanning_page():
     page_header('Jaarplanning', eyebrow='Planning')
+    render_traject('jaarplanning')
     st.caption('Macro/mesocyclus-voorstel per A-doel volgens Friel en Olbrecht, terugwerkend gepland '
                'vanaf elke wedstrijddatum. De coach vertaalt dit naar concrete sessies.')
 
@@ -1107,6 +1265,41 @@ def render_jaarplanning_page():
         st.session_state[goals_key] = []
     goals = st.session_state[goals_key]
 
+    # Integratieve route: zijn er nog geen A-doelen, dan worden de wedstrijden uit de intake
+    # automatisch overgenomen (één keer per atleet — verwijdert de coach ze, dan blijven ze weg).
+    auto_key = f'jp_auto_{athlete_name}'
+    if not goals and intake_v and not st.session_state.get(auto_key):
+        st.session_state[auto_key] = True
+        nieuw = doel_suggesties(intake_v)
+        if nieuw:
+            goals.extend(nieuw)
+            st.session_state[goals_key] = goals
+            _autosave_doelen(athlete_name, goals)
+            st.session_state['jp_flash'] = ('Overgenomen uit de intake: '
+                                            + ', '.join(g['name'] for g in nieuw) + '.')
+    flash = st.session_state.pop('jp_flash', None)
+    if flash:
+        st.success(flash)
+
+    # Hoofddoel uit de intake zonder datum: meteen de datum laten invullen
+    hoofd_open = hoofddoel_zonder_datum(intake_v, goals)
+    if hoofd_open and len(goals) < 3:
+        with st.form(f'hoofd_datum_{athlete_name}'):
+            st.markdown(f'**Hoofddoel uit de intake: {hoofd_open}** — vul de datum in om het als A-doel '
+                        f'op te nemen.')
+            h1, h2, h3 = st.columns([1.2, 1, 1])
+            h_datum = h1.date_input('Datum', value=None, min_value=pd.Timestamp.now().date(),
+                                    key=f'hoofd_datum_in_{athlete_name}')
+            h_disc = h2.selectbox('Discipline', SPORTEN, key=f'hoofd_disc_{athlete_name}',
+                                  index=SPORTEN.index(_sport_uit_tekst(intake_v['algemeen']['sport']))
+                                  if _sport_uit_tekst(intake_v['algemeen']['sport']) in SPORTEN else 0)
+            h3.markdown('<div style="height:1.7rem"></div>', unsafe_allow_html=True)
+            if h3.form_submit_button('Toevoegen', type='primary', use_container_width=True) and h_datum:
+                goals.append({'name': hoofd_open, 'date': pd.Timestamp(h_datum), 'discipline': h_disc})
+                st.session_state[goals_key] = goals
+                _autosave_doelen(athlete_name, goals)
+                st.rerun()
+
     if goals:
         chips = ''.join(
             f'<span class="dm-goal-chip">{g["name"]} — {pd.Timestamp(g["date"]).strftime("%d %b %Y")}</span>'
@@ -1162,13 +1355,15 @@ def render_jaarplanning_page():
 
     # --- Stap 3: het plan ---------------------------------------------------
     if goals:
-        st.divider()
-        st.markdown('##### ③ Voorgestelde planning')
         today_ref = pd.Timestamp(ref_date)
         acwr_current = bel['current'] if bel else None
         plan = core.generate_jaarplanning(today_ref, goals, acwr_current,
                                            profiel=(bel or {}).get('profiel'),
                                            gaps=(bel or {}).get('gaps'))
+        # Eerst het eindproduct voor de atleet (één klik), daarna de planning in detail voor de coach.
+        render_trajectverslag(athlete_name, intake_v, plan, bel, titel='③ Trajectverslag voor de atleet')
+        st.divider()
+        st.markdown('##### ④ Planning in detail')
         if not (bel or {}).get('profiel'):
             st.caption('Zonder belastbaarheidsdata blijven de actiepunten algemeen. Kies hierboven een '
                        'analyse of upload een activities.csv om ze op de trainingshistoriek per sport '
@@ -1348,6 +1543,7 @@ def render_intake_context(v, titel='Uit de intake', compact=False):
         return False
     rijen = [
         ('Hoofddoel', intake._hoofddoel(v)),
+        ('Doel op het event', _tekst(v['doelen'].get('prestatiedoel'))),
         ('Waarom', _tekst(v['doelen'].get('motivatie'))),
         ('Korte termijn', _tekst(v['doelen']['korte_termijn'])),
         ('Wedstrijden', _tekst(v['doelen']['wedstrijden'])),
@@ -1375,38 +1571,31 @@ _MAANDEN = {'jan': 1, 'feb': 2, 'mrt': 3, 'maa': 3, 'apr': 4, 'mei': 5, 'jun': 6
 
 
 def doel_suggesties(v):
-    """Leest wedstrijden met een datum uit het intakeveld 'Belangrijke wedstrijden' — zo hoeft
-    de coach ze in de jaarplanning niet opnieuw in te typen. Enkel regels waarin effectief een
-    toekomstige datum staat, worden voorgesteld; de rest blijft gewoon in de intake staan."""
+    """Wedstrijden met een toekomstige datum uit de intake, als A-doelen (max. 3). De wedstrijd van
+    het hoofddoel komt altijd mee; daarna de overige, chronologisch."""
     if not v:
         return []
-    tekst = '\n'.join([_tekst(v['doelen']['wedstrijden']), _tekst(v['doelen']['lange_termijn']),
-                       _tekst(v['doelen']['korte_termijn'])])
-    uit = []
-    for regel in re.split(r'[\n;•]+', tekst):
-        regel = regel.strip(' -–,.')
-        if not regel:
-            continue
-        datum = None
-        m = re.search(r'\b(\d{1,2})[/.\-](\d{1,2})[/.\-](\d{2,4})\b', regel)
-        if m:
-            d, mo, y = map(int, m.groups())
-            y = y + 2000 if y < 100 else y
-        else:
-            m = re.search(r'\b(\d{1,2})\s+([a-zA-Z]{3,})\.?\s+(\d{4})\b', regel)
-            if m and m.group(2)[:3].lower() in _MAANDEN:
-                d, mo, y = int(m.group(1)), _MAANDEN[m.group(2)[:3].lower()], int(m.group(3))
-        if m:
-            try:
-                datum = pd.Timestamp(date(y, mo, d))
-            except ValueError:
-                datum = None
-        if datum is None or datum < pd.Timestamp.now().normalize():
-            continue
-        naam = _tekst(regel.replace(m.group(0), '')).strip(' -–:,()') or 'Wedstrijd'
-        uit.append({'name': naam[:60], 'date': datum, 'discipline': _sport_uit_tekst(regel) or
-                    _sport_uit_tekst(v['algemeen']['sport']) or 'Andere'})
-    return uit[:6]
+    sport = _sport_uit_tekst(v['algemeen']['sport']) or 'Andere'
+    vandaag = date.today()
+    races = [r for r in intake._wedstrijden(v['doelen'].get('wedstrijden')) if r[1] and r[1] >= vandaag]
+    hoofd = intake._hoofd_race(v)
+    if hoofd and hoofd[1] >= vandaag:
+        races = [hoofd] + [r for r in races if r != hoofd]
+    uit = [{'name': n[:60], 'date': pd.Timestamp(d), 'discipline': _sport_uit_tekst(n) or sport}
+           for n, d in races[:3]]
+    return sorted(uit, key=lambda g: g['date'])
+
+
+def hoofddoel_zonder_datum(v, goals):
+    """Het hoofddoel uit de intake als het nog geen datum heeft en nog niet bij de A-doelen staat."""
+    if not v:
+        return None
+    hoofd = intake._hoofddoel(v)
+    if not hoofd or intake._hoofd_race(v):
+        return None
+    if any(hoofd.lower() in g['name'].lower() or g['name'].lower() in hoofd.lower() for g in goals):
+        return None
+    return hoofd
 
 
 def _stat(label, waarde, meta='', toon=''):
@@ -1558,8 +1747,8 @@ def render_dashboard_page():
         goto(PAGE_TESTEN)
 
     st.markdown('<div style="height:1.2rem"></div>', unsafe_allow_html=True)
-    t_over, t_intake, t_bel, t_jp, t_test, t_docs, t_prof = st.tabs(
-        ['Overzicht', 'Intake', 'Belastbaarheid', 'Jaarplanning', 'Testen', 'Documenten', 'Profiel'])
+    t_over, t_traj, t_intake, t_bel, t_jp, t_test, t_docs, t_prof = st.tabs(
+        ['Overzicht', 'Trajectverslag', 'Intake', 'Belastbaarheid', 'Jaarplanning', 'Testen', 'Documenten', 'Profiel'])
 
     with t_over:
         links, rechts = st.columns([1.15, 1], gap='large')
@@ -1585,6 +1774,17 @@ def render_dashboard_page():
                                 f'{pd.Timestamp(g["date"]).strftime("%d %b %Y")}</span>' for g in goals)
                 st.markdown(f'<div class="dm-card"><div class="dm-card-title">A-doelen</div>{chips}</div>',
                             unsafe_allow_html=True)
+
+    with t_traj:
+        if goals:
+            bel_t = _belastbaarheid_voor(naam, JP_BRON_ANALYSE)
+            plan_t = core.generate_jaarplanning(pd.Timestamp.now().normalize(), goals,
+                                                bel_t['current'] if bel_t else None,
+                                                profiel=(bel_t or {}).get('profiel'), gaps=(bel_t or {}).get('gaps'))
+            render_trajectverslag(naam, v, plan_t, bel_t, titel='Trajectverslag', sleutel='dash')
+        else:
+            st.caption('Het trajectverslag vraagt minstens één A-doel. Open de jaarplanning: wedstrijden uit '
+                       'de intake worden daar automatisch overgenomen.')
 
     with t_intake:
         if intake_rec and (intake_rec.get('data') or {}).get('html'):
@@ -1707,6 +1907,10 @@ def _render_documenten(atleet):
             if c2.button('Openen', key=f"rec_open_{r['id']}", use_container_width=True):
                 _suite_laad(r)
                 goto(PAGE_VOEDING if r['soort'] == 'voeding' else PAGE_TESTEN)
+        elif r['soort'] == 'traject':
+            c2.download_button('Download', data=(r.get('data') or {}).get('html', ''),
+                               file_name=f"Trajectverslag_{atleet['naam'].replace(' ', '_')}_{datum.replace(' ', '')}.html",
+                               mime='text/html', key=f"rec_dl_{r['id']}", use_container_width=True)
         elif r['soort'] == 'document':
             bestandsnaam = f"{atleet['naam'].replace(' ', '_')}_{r['soort']}_{datum.replace(' ', '')}.json"
             c2.download_button('Download', data=json.dumps(r['data'], ensure_ascii=False, indent=2),
@@ -1876,6 +2080,7 @@ def render_intake_page():
     if kop2.button('Nieuwe intake', key='intake_nieuw', use_container_width=True):
         _intake_wissen()
         st.rerun()
+    render_traject('intake')
     st.caption('Upload de opname van het intakegesprek: de tool schrijft ze uit en vult het verslag in. '
                'Jij leest na en corrigeert; daarna verschijnt het verslag in de huisstijl en wordt het '
                'bij de atleet bewaard.')
@@ -1951,6 +2156,15 @@ def render_intake_page():
                    'kies ⌘P → Bewaar als PDF. Aanpassen? Wijzig hierboven en klik opnieuw op '
                    '"Verslag maken & bewaren".')
         components.html(html, height=1250, scrolling=True)
+
+        atleet = st.session_state.get('atleet')
+        if atleet and st.session_state.get('intake_record_id'):
+            st.markdown('##### Volgende stap')
+            n1, n2 = st.columns(2)
+            if n1.button('Verder: belastbaarheidsanalyse →', key='ik_naar_bel', type='primary', use_container_width=True):
+                goto(PAGE_BELASTBAARHEID)
+            if n2.button('Geen Strava-data? Meteen naar de jaarplanning →', key='ik_naar_jp', use_container_width=True):
+                _naar_jaarplanning(atleet['naam'])
 
 
 # ---------------------------------------------------------------------------
@@ -2112,6 +2326,7 @@ def render_analyse_sidebar():
 
 
 def render_belastbaarheid_page():
+    render_traject('belastbaarheid')
     active = st.session_state.get('active_athlete')
     if not active:
         st.markdown(f"""

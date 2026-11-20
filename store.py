@@ -32,6 +32,7 @@ SOORTEN = {
     'prestatietest': 'Prestatietest',
     'voeding': 'Voedingsplan',
     'document': 'Document',
+    'traject': 'Trajectverslag',
 }
 
 

@@ -108,7 +108,8 @@ SECTIES = [
         ('op_naam_van', 'Facturatie op naam van (atleet / ouder / bedrijf)', 'input'),
     ]),
     ('doelen', 'Doelen', [
-        ('hoofddoel', 'Hoofddoel — één krachtige zin (staat groot op het verslag)', 'input'),
+        ('hoofddoel', 'Hoofddoel — enkel het event (bv. Ironman Nice 2027); staat groot op het verslag', 'input'),
+        ('prestatiedoel', 'Doel op dat event (bv. finishen onder 11 uur)', 'input'),
         ('motivatie', 'Waarom — de drijfveer van de atleet', 'area'),
         ('korte_termijn', 'Korte-termijndoelen', 'area'),
         ('lange_termijn', 'Lange-termijndoelen', 'area'),
@@ -318,7 +319,7 @@ def _schema_voorbeeld():
                           'contact': '04xx xx xx xx, naam@mail.be'})
     v['coach'] = {'naam': '', 'email': '', 'gsm': ''}
     v['facturatie'] = {k: '' for k in v['facturatie']}
-    v['doelen'] = {'hoofddoel': '…', 'motivatie': '…', 'korte_termijn': '…\n…', 'lange_termijn': '…',
+    v['doelen'] = {'hoofddoel': '…', 'prestatiedoel': '…', 'motivatie': '…', 'korte_termijn': '…\n…', 'lange_termijn': '…',
                    'wedstrijden': 'Naam wedstrijd – dd/mm/jjjj\n…'}
     v['ervaring'] = {k: '…' for k in v['ervaring']}
     v['afspraken'] = {k: '' for k in v['afspraken']}
@@ -340,7 +341,8 @@ Regels:
 - "coach": laat leeg; die gegevens vult de app zelf in.
 - "facturatie": enkel wat letterlijk werd doorgegeven.
 - "doelen" is het hart van het verslag en moet de atleet motiveren. Kort, concreet, in de woorden van de atleet:
-  - "hoofddoel": het ene grote doel in één krachtige zin van max. 10 woorden, concreet en liefst meetbaar (bv. "Ironman Nice finishen onder 11 uur"). Geen inleiding, geen punt op het einde.
+  - "hoofddoel": ENKEL de naam van het belangrijkste event, max. 5 woorden, eventueel met jaartal (bv. "Ironman Nice 2027"). Geen tijd, geen ambitie, geen werkwoord. Is er geen concreet event, dan het doel zelf in max. 5 woorden.
+  - "prestatiedoel": wat de atleet op dat event wil bereiken, max. 8 woorden, concreet en liefst meetbaar (bv. "Finishen onder 11 uur"). Geen punt op het einde.
   - "motivatie": 1 à 2 korte zinnen: waarom dit doel voor de atleet belangrijk is, zo dicht mogelijk bij wat hij/zij zelf zei. Leeg als het niet besproken is.
   - "korte_termijn" en "lange_termijn": max. 3 doelen elk, één per regel, elk max. 8 woorden, zonder opsommingstekens.
   - "wedstrijden": één wedstrijd per regel als "Naam – dd/mm/jjjj" (datum enkel als die genoemd werd).
@@ -514,7 +516,13 @@ h1,h2,h3,h4{letter-spacing:-.02em}
 .goalhero::before{content:"";position:absolute;left:0;top:0;bottom:0;width:6px;background:var(--accent)}
 .gh-main{flex:1;min-width:0}
 .gh-eyebrow{font-size:11px;font-weight:700;letter-spacing:.2em;text-transform:uppercase;color:var(--green-dark);margin-bottom:10px}
-.gh-goal{font-size:34px;line-height:1.1;font-weight:900;letter-spacing:-.03em;color:var(--accent)}
+.gh-goal{font-size:40px;line-height:1.05;font-weight:900;letter-spacing:-.035em;color:var(--accent)}
+.gh-date{margin-top:10px;font-size:15px;font-weight:700;color:var(--brown)}
+.gambition{margin-top:22px;border:1px solid var(--line);border-radius:16px;padding:22px 24px;background:#fff}
+.ga-t{font-size:11px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--green-dark);margin-bottom:8px}
+.ga-goal{font-size:24px;font-weight:900;line-height:1.2;letter-spacing:-.025em;color:var(--ink)}
+.ga-why{margin-top:12px;font-size:14.5px;line-height:1.55;color:var(--text)}
+.ga-why span{display:block;font-size:10.5px;font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin-bottom:3px}
 .gh-why{margin-top:16px;font-size:15px;line-height:1.55;color:var(--text);max-width:520px}
 .gh-why span{display:block;font-size:10.5px;font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin-bottom:4px}
 .gh-count{flex:none;width:132px;background:#fff;border-radius:16px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:14px}
@@ -543,9 +551,31 @@ h1,h2,h3,h4{letter-spacing:-.02em}
 .rcover.metdoel .cvdisc{margin-bottom:34px}
 @media print{.rcover{overflow:hidden}.rcover.metdoel .cvtop{padding-top:8mm}}
 .rcover .cvgoal-l{font-size:11px;font-weight:700;letter-spacing:.22em;text-transform:uppercase;color:var(--green-dark);margin-bottom:8px}
-.rcover .cvgoal-v{font-size:26px;font-weight:900;line-height:1.15;letter-spacing:-.025em;color:var(--accent)}
+.rcover .cvgoal-v{font-size:30px;font-weight:900;line-height:1.15;letter-spacing:-.025em;color:var(--accent)}
 @media(max-width:640px){.goalhero{flex-direction:column}.gh-count{width:auto;flex-direction:row;gap:12px}.gcols{grid-template-columns:1fr}.gh-goal{font-size:27px}.gtl{flex-direction:column;gap:12px}.gtl::before{display:none}}
 @media print{.goals,.goalhero,.gcols,.gtl{page-break-inside:avoid;break-inside:avoid}}
+
+/* ---------- Trajectverslag: belastbaarheid & jaarplanning ---------- */
+.tv-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:4px 0 14px}
+.tv-stat{border:1px solid var(--line);border-radius:14px;padding:14px 16px;background:#fff}
+.tv-stat .k{font-size:10.5px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+.tv-stat .v{font-size:24px;font-weight:900;letter-spacing:-.03em;color:var(--ink);margin-top:4px;font-variant-numeric:tabular-nums}
+.tv-stat.ok .v{color:#2F7A5B}.tv-stat.warn .v{color:#9A6A14}.tv-stat.alert .v{color:#A3362A}
+.tv-advies{border-radius:12px;padding:12px 14px;margin-bottom:8px;background:#F3EBE6}
+.tv-advies b{display:block;font-size:13.5px;margin-bottom:2px;color:var(--ink)}
+.tv-advies span{font-size:13px;line-height:1.55;color:var(--text)}
+.tv-goal{font-size:15px;font-weight:900;color:var(--accent);margin:18px 0 10px;letter-spacing:-.01em}
+.tv-goal small{font-weight:600;color:var(--muted);font-size:12.5px;margin-left:8px}
+.tv-block{display:grid;grid-template-columns:150px 1fr;gap:14px;padding:12px 0;border-top:1px solid var(--line)}
+.tv-block:first-of-type{border-top:none}
+.tv-fase{font-weight:900;font-size:14px;color:var(--ink);border-left:3px solid var(--fase,#D8BFAF);padding-left:10px}
+.tv-fase small{display:block;font-weight:600;font-size:11.5px;color:var(--muted);margin-top:3px}
+.tv-focus{font-size:13px;line-height:1.55;color:var(--text)}
+.tv-meta{font-size:11.5px;font-weight:700;color:var(--brown);margin-bottom:3px}
+.tv-intake{border-radius:12px;padding:12px 14px;background:#FBF4EF;font-size:13px;line-height:1.55;margin-bottom:6px}
+.tv-intake b{color:var(--accent)}
+@media(max-width:640px){.tv-stats{grid-template-columns:1fr 1fr}.tv-block{grid-template-columns:1fr}}
+@media print{.tv-block,.tv-stats,.tv-advies{page-break-inside:avoid;break-inside:avoid}}
 """
 
 VERSLAG_JS = """
@@ -608,15 +638,36 @@ def _wedstrijden(tekst):
 
 
 def _hoofddoel(v):
+    """Het hoofddoel = het event zelf (bv. 'Ironman Nice 2027')."""
     d = v['doelen']
     if str(d.get('hoofddoel') or '').strip():
         return str(d['hoofddoel']).strip().rstrip('.')
-    for veld in ('lange_termijn', 'korte_termijn'):
-        r = _regels(d.get(veld), 1)
-        if r:
-            return r[0].rstrip('.')
-    w = _wedstrijden(d.get('wedstrijden'))
-    return w[0][0] if w else ''
+    races = [r for r in _wedstrijden(d.get('wedstrijden')) if r[1]]
+    if races:
+        return races[-1][0]                       # laatste geplande wedstrijd = meestal het A-event
+    r = _regels(d.get('lange_termijn'), 1) or _regels(d.get('korte_termijn'), 1)
+    return r[0].rstrip('.') if r else ''
+
+
+def _hoofd_race(v):
+    """De wedstrijd (naam, datum) die bij het hoofddoel hoort, of None."""
+    hoofd = _hoofddoel(v)
+    races = [r for r in _wedstrijden(v['doelen'].get('wedstrijden')) if r[1]]
+    if not races:
+        return None
+    woorden = set(re.findall(r'\w{4,}', hoofd.lower()))
+    score = lambda r: len(woorden & set(re.findall(r'\w{4,}', r[0].lower())))
+    beste = max(races, key=score)
+    if score(beste):
+        return beste
+    toekomst = [r for r in races if r[1] >= date.today()]
+    return toekomst[-1] if toekomst else None
+
+
+def _datum_lang(dt):
+    maanden = ['januari', 'februari', 'maart', 'april', 'mei', 'juni', 'juli', 'augustus', 'september',
+               'oktober', 'november', 'december']
+    return f'{dt.day} {maanden[dt.month - 1]} {dt.year}'
 
 
 def _doelen_blok(v):
@@ -624,24 +675,29 @@ def _doelen_blok(v):
     hoofd = _hoofddoel(v)
     races = _wedstrijden(d.get('wedstrijden'))
     vandaag = date.today()
+    race = _hoofd_race(v)
 
-    teller = ''
-    # Aftellen naar de wedstrijd van het hoofddoel; staat die niet in de lijst, dan naar de
-    # laatste geplande wedstrijd (meestal het A-doel waar de andere naartoe leiden).
-    toekomst = [r for r in races if r[1] and r[1] >= vandaag]
-    woorden = {w for w in re.findall(r'\w{4,}', hoofd.lower())}
-    score = lambda r: len(woorden & set(re.findall(r'\w{4,}', r[0].lower())))
-    beste = max(toekomst, key=score, default=None)
-    eerste = beste if beste and score(beste) else (toekomst[-1] if toekomst else None)
-    if eerste:
-        weken = (eerste[1] - vandaag).days // 7
-        teller = (f'<div class="gh-count"><div class="gh-count-n">{weken}</div>'
-                  f'<div class="gh-count-l">weken tot<br>{_e(eerste[0])}</div></div>')
-    waarom = (f'<div class="gh-why"><span>Waarom</span>{_e(d.get("motivatie"))}</div>'
-              if str(d.get('motivatie') or '').strip() else '')
+    teller, datum = '', ''
+    if race:
+        datum = f'<div class="gh-date">{_datum_lang(race[1])}</div>'
+        if race[1] >= vandaag:
+            weken = (race[1] - vandaag).days // 7
+            teller = (f'<div class="gh-count"><div class="gh-count-n">{weken}</div>'
+                      f'<div class="gh-count-l">weken te gaan</div></div>')
     hero = (f'<div class="goalhero"><div class="gh-main"><div class="gh-eyebrow">Jouw hoofddoel</div>'
-            f'<div class="gh-goal">{_e(hoofd) if hoofd else "Nog samen vast te leggen"}</div>{waarom}</div>'
+            f'<div class="gh-goal">{_e(hoofd) if hoofd else "Nog samen vast te leggen"}</div>{datum}</div>'
             f'{teller}</div>')
+
+    # Het doel óp dat event en de drijfveer: verderop, als eigen blok
+    pdoel = str(d.get('prestatiedoel') or '').strip().rstrip('.')
+    motivatie = str(d.get('motivatie') or '').strip()
+    ambitie = ''
+    if pdoel or motivatie:
+        titel = f'Jouw doel op {_e(hoofd)}' if hoofd else 'Jouw doel'
+        ambitie = (f'<div class="gambition"><div class="ga-t">{titel}</div>'
+                   + (f'<div class="ga-goal">{_e(pdoel)}</div>' if pdoel else '')
+                   + (f'<div class="ga-why"><span>Waarom</span>{_e(motivatie)}</div>' if motivatie else '')
+                   + '</div>')
 
     def kolom(titel, tekst):
         items = _regels(tekst, 3)
@@ -657,10 +713,12 @@ def _doelen_blok(v):
             f'<div class="tl-name">{_e(r[0])}</div></div>' for r in races)
         tijdlijn = f'<div class="gtl-t">Wedstrijden op de weg ernaartoe</div><div class="gtl">{stops}</div>'
 
-    return f'<div class="rsec goals"><h3 data-n="1">Jouw doelen</h3>{hero}{kolommen}{tijdlijn}</div>'
+    return f'<div class="rsec goals"><h3 data-n="1">Jouw doelen</h3>{hero}{tijdlijn}{ambitie}{kolommen}</div>'
 
 
-def verslag_html(v):
+def verslag_html(v, extra_html='', titel='Intakeverslag', eyebrow='Intake · Verslag'):
+    """extra_html: bijkomende secties (bv. belastbaarheid en jaarplanning) die meteen na de doelen
+    komen — zo wordt het intakeverslag het volledige trajectverslag voor de atleet."""
     """Zelfstandig HTML-verslag (fonts via Google Fonts, logo ingebed) — te bekijken in de app,
     te openen in een nieuw tabblad en via de browser te bewaren als PDF."""
     v = normaliseer(v)
@@ -680,10 +738,10 @@ def verslag_html(v):
   <div class="cvtop">
     {logo_img}
     <div class="cvrule"></div>
-    <div class="cveyebrow">Intake · Verslag</div>
-    <h1 class="cvtitle">Intakeverslag</h1>
+    <div class="cveyebrow">{_e(eyebrow)}</div>
+    <h1 class="cvtitle">{_e(titel)}</h1>
     <div class="cvdisc">Coachingsoverzicht · {_e(sport)}</div>
-    {f'<div class="cvgoal"><div class="cvgoal-l">Jouw doel</div><div class="cvgoal-v">{_e(hoofddoel)}</div></div>' if hoofddoel else ''}
+    {f'<div class="cvgoal"><div class="cvgoal-l">Jouw hoofddoel</div><div class="cvgoal-v">{_e(hoofddoel)}</div></div>' if hoofddoel else ''}
     <div class="cvwho"><div class="cvname">{_e(naam)}</div><div class="cvdate">{_e(a['datum'])}</div></div>
   </div>
   <div class="cvfoot">
@@ -808,10 +866,10 @@ def verslag_html(v):
     body = f"""
 <div class="rpage">
   <div class="rhead">
-    <div class="rt"><small>{_e(sport)} · Rapport</small>Intakeverslag</div>
+    <div class="rt"><small>{_e(sport)} · Rapport</small>{_e(titel)}</div>
     <div class="rr">{logo_head}<span class="rdisc">{_e(sport)}</span></div>
   </div>
-  {s4}{s1}{s2}{s3}{s5}{s6}{s7}{s8}{s9}{s10}{s11}
+  {s4}{extra_html}{s1}{s2}{s3}{s5}{s6}{s7}{s8}{s9}{s10}{s11}
   {voet}
 </div>"""
     # Secties doorlopend nummeren in de volgorde waarin ze nu staan
@@ -820,7 +878,7 @@ def verslag_html(v):
 
     return f"""<!doctype html>
 <html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Intakeverslag — {_e(naam)}</title>
+<title>{_e(titel)} — {_e(naam)}</title>
 <link href="https://api.fontshare.com/v2/css?f[]=satoshi@400,500,700,900&display=swap" rel="stylesheet">
 <style>{VERSLAG_CSS}</style><script>{VERSLAG_JS}</script></head>
 <body>
