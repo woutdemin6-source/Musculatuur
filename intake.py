@@ -395,10 +395,10 @@ def _of_streep(s):
 
 
 VERSLAG_CSS = """
-:root{--bg:#FBF6F2;--surface:#fff;--surface-2:#F7F0EA;--ink:#3B2820;--muted:#6E7B99;--faint:#A99A8C;
---line:#EDE2D8;--line-strong:#DCCCBE;--graphite:#3B2820;--accent:#5B1F2C;--accent-ink:#45161F;--green:#6FA98A;
---green-dark:#5C9179;--radius:14px;--shadow:0 2px 10px rgba(59,40,32,.08),0 8px 28px -12px rgba(59,40,32,.14);
---mono:'Space Mono',ui-monospace,monospace;--disp:'Playfair Display',Georgia,serif;--body:'Poppins',system-ui,sans-serif}
+:root{--bg:#F8F3F0;--surface:#fff;--surface-2:#F3EBE6;--sand:#EED7C5;--ink:#211408;--text:#3D2E29;--brown:#6B3B2A;--muted:#8C766A;--faint:#B4A399;
+--line:#ECE1DA;--line-strong:#D8BFAF;--graphite:#3D2E29;--accent:#4F000B;--accent-ink:#3A0008;--green:#63B995;
+--green-dark:#4E9F7E;--radius:18px;--shadow:0 1px 2px rgba(33,20,8,.04),0 10px 30px -14px rgba(33,20,8,.12);
+--mono:'Satoshi','Helvetica Neue',Arial,sans-serif;--disp:'Satoshi','Helvetica Neue',Arial,sans-serif;--body:'Satoshi','Helvetica Neue',Arial,sans-serif}
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--body);font-size:14px;line-height:1.55;-webkit-font-smoothing:antialiased}
 .report{max-width:820px;margin:0 auto;padding:22px 16px 40px}
@@ -488,6 +488,16 @@ ul.bul b{color:var(--ink)}
   .pagebreak{page-break-before:always;break-before:page}
   *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
 }
+/* Premium-verfijning — gelijk aan de Streamlit-tools */
+body{color:var(--text)}
+h1,h2,h3,h4{letter-spacing:-.02em}
+.toolbar button{border-radius:999px;font-weight:700;border:1px solid var(--line-strong)}
+.toolbar button.primary{background:var(--green);border-color:var(--green)}
+.rpage{border-radius:var(--radius);border-color:var(--line)}
+.rhead{border-bottom:1px solid var(--line-strong)}
+.rdisc{background:var(--accent);font-weight:700}
+.rsec h3::before{background:var(--accent);border-radius:999px}
+.rcover .cvrule{background:var(--green)}
 """
 
 VERSLAG_JS = """
@@ -681,8 +691,7 @@ def verslag_html(v):
     return f"""<!doctype html>
 <html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Intakeverslag — {_e(naam)}</title>
-<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@500;600;700&family=Poppins:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<link href="https://api.fontshare.com/v2/css?f[]=satoshi@400,500,700,900&display=swap" rel="stylesheet">
 <style>{VERSLAG_CSS}</style><script>{VERSLAG_JS}</script></head>
 <body>
 <div class="toolbar"><button onclick="dmOpen()">Open in nieuw tabblad</button><button class="primary" onclick="dmPrint()">Bewaar als PDF</button></div>

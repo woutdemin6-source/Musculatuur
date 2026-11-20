@@ -13,12 +13,11 @@ maxUploadSize = 400
 # bewuste afweging, geen vergetelheid.
 enableStaticServing = true
 
-# Huisstijl De Musculatuur (crème/perzik + bordeaux + saliegroen).
-# Fijnere details (logo, sidebar, kaarten) worden via custom CSS in app.py gezet —
-# dit theme-blok bepaalt de basiskleuren van Streamlit's eigen widgets.
+# Huisstijl De Musculatuur — zelfde tokens als theme.py (licht, premium).
+# Fijnere details komen uit de CSS in app.py; dit blok kleurt Streamlit's eigen widgets.
 [theme]
-primaryColor = "#6FA98A"
-backgroundColor = "#FBF6F2"
-secondaryBackgroundColor = "#F2E6DE"
-textColor = "#3B2820"
+primaryColor = "#63B995"
+backgroundColor = "#F8F3F0"
+secondaryBackgroundColor = "#F3EBE6"
+textColor = "#3D2E29"
 font = "sans serif"

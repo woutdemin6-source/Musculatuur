@@ -4,39 +4,40 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Lactaat Rapport Generator</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=Poppins:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<link rel="preconnect" href="https://api.fontshare.com">
+<link href="https://api.fontshare.com/v2/css?f[]=satoshi@400,500,700,900&display=swap" rel="stylesheet">
 <style>
-/* Huisstijl De Musculatuur — zelfde tokens als de Streamlit-tools (crème/perzik,
-   bordeaux serif koppen, saliegroen als actiekleur, donkerbruin voor donkere vlakken).
+/* Huisstijl De Musculatuur — zelfde tokens als theme.py (Satoshi, licht crème canvas,
+   wijnrode koppen, saliegroen als actiekleur, warm donkerbruin voor tekst).
    Bewust NIET meegenomen in de huisstijl: de zonekleuren (--z1..--z6) en de hartslag-
    vs. lactaatkleur. Die dragen betekenis in de grafiek en het verslag — bordeaux en
    saliegroen door elkaar zouden een verslag onleesbaar maken. */
 :root{
-  --bg:#FBF6F2; --surface:#ffffff; --surface-2:#F7F0EA;
-  --ink:#3B2820; --muted:#6E7B99; --faint:#A99A8C;
-  --line:#EDE2D8; --line-strong:#DCCCBE;
-  --graphite:#3B2820;        /* donkerbruin, zoals de sidebar van de webapp */
-  --accent:#5B1F2C;          /* bordeaux */
-  --accent-ink:#45161F;
-  --green:#6FA98A;           /* saliegroen, actiekleur */
-  --green-dark:#5C9179;
+  --bg:#F8F3F0; --surface:#ffffff; --surface-2:#F3EBE6; --sand:#EED7C5;
+  --ink:#211408; --text:#3D2E29; --brown:#6B3B2A; --muted:#8C766A; --faint:#B4A399;
+  --line:#ECE1DA; --line-strong:#D8BFAF;
+  --graphite:#3D2E29;        /* donkerbruin, zoals de sidebar van de webapp */
+  --accent:#4F000B;          /* bordeaux */
+  --accent-ink:#3A0008;
+  --green:#63B995;           /* saliegroen, actiekleur */
+  --green-dark:#4E9F7E;
   --hr:#2563EB;              /* hartslag — functioneel, blijft blauw */
   --la:#E23744;             /* lactaat — functioneel; moet gelijk blijven aan de vaste
                                hex in de SVG-grafiek en de legende (> LT2), anders zeggen
                                curve en legende iets anders */
   --ok:#16a34a;
   --z1:#3B82F6; --z2:#22B8CF; --z3:#22C55E; --z4:#EAB308; --z5a:#F97316; --z5b:#EF4444; --z6:#B91C1C;
-  --radius:14px; --shadow:0 2px 10px rgba(59,40,32,.08),0 8px 28px -12px rgba(59,40,32,.14);
-  --mono:'Space Mono',ui-monospace,monospace;
-  --disp:'Playfair Display',Georgia,serif;
-  --body:'Poppins',system-ui,sans-serif;
+  --radius:18px; --shadow:0 1px 2px rgba(33,20,8,.04),0 10px 30px -14px rgba(33,20,8,.12);
+  --mono:'Satoshi','Helvetica Neue',Arial,sans-serif;
+  --disp:'Satoshi','Helvetica Neue',Arial,sans-serif;
+  --body:'Satoshi','Helvetica Neue',Arial,sans-serif;
 }
 *{box-sizing:border-box}
 html,body{margin:0;padding:0}
 body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:15px;line-height:1.5;-webkit-font-smoothing:antialiased}
-h1,h2,h3,h4{font-family:var(--disp);margin:0;letter-spacing:-.01em;color:var(--accent)}
+h1,h2,h3,h4{font-family:var(--disp);margin:0;letter-spacing:-.02em;color:var(--accent);font-weight:700}
+.mono,table.data input,table.data td{font-variant-numeric:tabular-nums}
+body{color:var(--text)}
 button{font-family:var(--body);cursor:pointer}
 input,select,textarea{font-family:var(--body)}
 .mono{font-family:var(--mono)}
@@ -233,7 +234,7 @@ textarea.in:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px r
 .ttgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px}
 .ttbtn{text-align:left;border:1.5px solid var(--line);background:var(--card);border-radius:14px;padding:14px 16px;cursor:pointer;transition:.15s;display:flex;flex-direction:column;gap:4px}
 .ttbtn:hover{border-color:var(--muted)}
-.ttbtn b{font-family:'Space Grotesk',sans-serif;font-size:15px;color:var(--ink)}
+.ttbtn b{font-family:var(--body);font-size:15px;color:var(--ink)}
 .ttbtn span{font-size:12.5px;color:var(--muted);line-height:1.35}
 .ttbtn.active{border-color:var(--accent);background:linear-gradient(0deg,rgba(226,55,68,.05),rgba(226,55,68,.05)),var(--card);box-shadow:0 0 0 3px rgba(91,31,44,.12)}
 .tt-only{display:none}
@@ -241,7 +242,7 @@ textarea.in:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px r
 .bigresult{display:flex;flex-wrap:wrap;gap:14px;margin:6px 0 4px}
 .rescard{flex:1;min-width:150px;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px 16px}
 .rescard .rlbl{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
-.rescard .rval{font-family:'Space Grotesk',sans-serif;font-size:26px;font-weight:600;color:var(--ink);margin-top:3px}
+.rescard .rval{font-family:var(--body);font-size:26px;font-weight:600;color:var(--ink);margin-top:3px}
 .rescard .rval small{font-size:14px;color:var(--muted);font-weight:500}
 
 /* ---------- print ---------- */
@@ -258,6 +259,30 @@ textarea.in:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px r
   .rsec{page-break-inside:avoid}
   *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
 }
+
+/* ---------- Premium-verfijning (gelijk aan de Streamlit-tools) ---------- */
+:root{--card:#ffffff;--panel:var(--surface-2)}
+.app{max-width:1120px}
+.btn{border-radius:999px;font-weight:700;padding:10px 18px}
+.btn.sm{padding:7px 14px}
+.btn.primary:hover{transform:translateY(-1px)}
+.steps{border-radius:999px;padding:5px}
+.step{border-radius:999px;font-weight:600}
+.step.active{background:var(--accent);color:#fff}
+.step.active .num{background:#fff;border-color:#fff;color:var(--accent)}
+.card{border-radius:var(--radius);padding:24px 26px}
+.card h2{font-size:18px;font-weight:700;letter-spacing:-.02em}
+.card h2 .ic{border-radius:10px;border:none;width:30px;height:30px}
+.chip{border:1px solid var(--line-strong)}
+.chip.sel{background:#FBF5F3;box-shadow:0 0 0 3px rgba(79,0,11,.08)}
+.drop{border:1px dashed var(--line-strong);border-radius:16px}
+.drop:hover,.drop.over{border-color:var(--green);background:#E7F4EE}
+.seg{border-radius:999px;border:1px solid var(--line-strong)}
+.seg button.active{background:var(--accent)}
+.ttbtn{border:1px solid var(--line)}
+.ttbtn.active{background:#FBF5F3;box-shadow:0 0 0 3px rgba(79,0,11,.08)}
+.rescard .rval{font-weight:700;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+input:focus,select:focus,textarea:focus{outline:none;border-color:var(--green)!important;box-shadow:0 0 0 3px rgba(99,185,149,.18)}
 </style>
 </head>
 <body>
@@ -808,7 +833,7 @@ function chartSVG(w,h){
   const pts=sortedPoints();
   const M={t:18,r:56,b:44,l:52};
   const iw=w-M.l-M.r, ih=h-M.t-M.b;
-  if(pts.length<2) return `<svg viewBox="0 0 ${w} ${h}"><text x="${w/2}" y="${h/2}" text-anchor="middle" fill="#98A2B3" font-family="Inter">Voeg minstens 2 meetpunten toe</text></svg>`;
+  if(pts.length<2) return `<svg viewBox="0 0 ${w} ${h}"><text x="${w/2}" y="${h/2}" text-anchor="middle" fill="#98A2B3" font-family="Satoshi, Helvetica Neue, Arial, sans-serif">Voeg minstens 2 meetpunten toe</text></svg>`;
   const sp=pts.map(p=>p.v), hr=pts.map(p=>p.hr), la=pts.map(p=>p.la);
   let xMin=Math.floor(Math.min(...sp)-0.5), xMax=Math.ceil(Math.max(...sp)+0.5);
   let hrMin=Math.floor((Math.min(...hr)-10)/5)*5, hrMax=Math.ceil((Math.max(...hr)+8)/5)*5;
@@ -816,7 +841,7 @@ function chartSVG(w,h){
   const X=v=>M.l+(v-xMin)/(xMax-xMin)*iw;
   const Yh=v=>M.t+ih-(v-hrMin)/(hrMax-hrMin)*ih;
   const Yl=v=>M.t+ih-(v/laMax)*ih;
-  let s=`<svg viewBox="0 0 ${w} ${h}" font-family="Inter" data-xmin="${xMin}" data-xmax="${xMax}" data-ml="${M.l}" data-iw="${iw}" data-w="${w}" data-xd0="${Math.min(...sp)}" data-xd1="${Math.max(...sp)}">`;
+  let s=`<svg viewBox="0 0 ${w} ${h}" font-family="Satoshi, Helvetica Neue, Arial, sans-serif" data-xmin="${xMin}" data-xmax="${xMax}" data-ml="${M.l}" data-iw="${iw}" data-w="${w}" data-xd0="${Math.min(...sp)}" data-xd1="${Math.max(...sp)}">`;
   // achtergrondbanden per intensiteitszone: groen tot LT1, geel tot LT2, rood erna
   { const GB="#12A150", AB="#E6A020", RB="#E23744", L=M.l, R=M.l+iw;
     const cxp=v=>Math.max(L,Math.min(R,X(v)));
@@ -863,7 +888,7 @@ function chartSVG(w,h){
   }
   // points
   pts.forEach(p=>{s+=`<circle cx="${X(p.v)}" cy="${Yh(p.hr)}" r="3.4" fill="#fff" stroke="${CH}" stroke-width="2"/>`;});
-  pts.forEach(p=>{s+=`<circle cx="${X(p.v)}" cy="${Yl(p.la)}" r="3.4" fill="#fff" stroke="${CL}" stroke-width="2"/><text x="${X(p.v)}" y="${Yl(p.la)-8}" text-anchor="middle" font-size="9" fill="#697384" font-family="Space Mono">${p.la.toFixed(1)}</text>`;});
+  pts.forEach(p=>{s+=`<circle cx="${X(p.v)}" cy="${Yl(p.la)}" r="3.4" fill="#fff" stroke="${CL}" stroke-width="2"/><text x="${X(p.v)}" y="${Yl(p.la)-8}" text-anchor="middle" font-size="9" fill="#697384" font-family="Satoshi, Helvetica Neue, Arial, sans-serif">${p.la.toFixed(1)}</text>`;});
   // thresholds
   const drawTh=(info,label,col,which)=>{
     if(!info)return; const px=X(info.v);
@@ -871,7 +896,7 @@ function chartSVG(w,h){
     const manual = which && state[which] && state[which].method==="manual";
     s+=`<line x1="${px}" y1="${M.t}" x2="${px}" y2="${M.t+ih}" stroke="${col}" stroke-width="1.4" stroke-dasharray="5 3" opacity="0.85"/>`;
     s+=`<circle cx="${px}" cy="${Yl(info.la)}" r="5.5" fill="${col}"/><circle cx="${px}" cy="${Yl(info.la)}" r="5.5" fill="none" stroke="#fff" stroke-width="1.6"/>`;
-    s+=`<g><rect x="${px-16}" y="${M.t-3}" width="32" height="16" rx="4" fill="${col}"/><text x="${px}" y="${M.t+8}" text-anchor="middle" font-size="9.5" font-weight="700" fill="#fff" font-family="Space Grotesk">${label}</text></g>`;
+    s+=`<g><rect x="${px-16}" y="${M.t-3}" width="32" height="16" rx="4" fill="${col}"/><text x="${px}" y="${M.t+8}" text-anchor="middle" font-size="9.5" font-weight="700" fill="#fff" font-family="Satoshi, Helvetica Neue, Arial, sans-serif">${label}</text></g>`;
     // sleepbaar: grijp de bol om de drempel manueel te verschuiven
     s+=`<g pointer-events="none"><circle cx="${px}" cy="${Yl(info.la)}" r="9" fill="none" stroke="${col}" stroke-width="1.4" opacity="${manual?0.65:0.4}"/></g>`;
     s+=`<rect data-drag="${which}" x="${px-12}" y="${M.t}" width="24" height="${ih}" fill="transparent" pointer-events="all" style="cursor:ew-resize;touch-action:none"/>`;
