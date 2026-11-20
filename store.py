@@ -98,6 +98,9 @@ def leesbare_fout(e) -> str:
                 'pauze). Wacht een paar minuten en ververs de pagina.')
     if any(x in t for x in ('timed out', 'Timeout', 'Connection refused', 'Connection reset')):
         return 'De database reageert niet (time-out). Probeer het over een minuut opnieuw.'
+    if '23514' in t or 'check constraint' in t:
+        return ('De database weigert dit type document (de tabel staat enkel vaste documentsoorten toe). '
+                'Meld dit even — het is een aanpassing in de app, niet iets wat jij moet oplossen.')
     if 'Invalid API key' in t or '401' in t:
         return 'De database weigert de sleutel: controleer SUPABASE_KEY in de secrets van de app.'
     return f'De database is niet bereikbaar ({t[:200]}).'

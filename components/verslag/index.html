@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<!--
+  Bewerkbare weergave van een verslag (trajectverslag, intakeverslag) binnen de Streamlit-app.
+  Het verslag zelf draait in een iframe (srcdoc, zelfde origin), zodat zijn eigen stijl en
+  printknop gewoon werken. "Bewerken" zet het document in bewerkmodus (designMode); "Wijzigingen
+  bewaren" stuurt de volledige HTML terug naar de app, die ze bij de atleet bewaart.
+-->
+<link href="https://api.fontshare.com/v2/css?f[]=satoshi@400,500,700&display=swap" rel="stylesheet">
+<style>
+  html,body{margin:0;background:transparent;font-family:'Satoshi','Helvetica Neue',Arial,sans-serif}
+  .bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:#fff;border:1px solid #ECE1DA;border-radius:999px;
+       padding:8px 10px 8px 18px;margin:2px 2px 12px;box-shadow:0 1px 2px rgba(33,20,8,.04),0 10px 30px -14px rgba(33,20,8,.12)}
+  .bar .st{font-size:14px;color:#8C766A;flex:1;min-width:200px}
+  .bar .st b{color:#3D2E29}
+  .bar.on{border-color:#63B995;box-shadow:0 0 0 3px rgba(99,185,149,.18)}
+  button{font-family:inherit;font-weight:700;font-size:14px;border-radius:999px;padding:9px 18px;cursor:pointer;
+         border:1px solid #D8BFAF;background:#fff;color:#3D2E29;transition:.15s}
+  button:hover{border-color:#4F000B;color:#4F000B}
+  button.primary{background:#63B995;border-color:#63B995;color:#fff}
+  button.primary:hover{background:#4E9F7E;border-color:#4E9F7E;color:#fff}
+  button:disabled{opacity:.45;cursor:default}
+  iframe{width:100%;border:0;display:block;min-height:600px}
+</style>
+</head>
+<body>
+<div class="bar" id="bar">
+  <div class="st" id="status">Klik op <b>Bewerken</b> en typ rechtstreeks in het verslag.</div>
+  <button id="btnEdit">Bewerken</button>
+  <button id="btnSave" class="primary" disabled>Wijzigingen bewaren</button>
+  <button id="btnCancel" disabled>Annuleren</button>
+</div>
+<iframe id="doc"></iframe>
+<script>
+const $=s=>document.querySelector(s);
+const frame=$('#doc');
+let nonce=null, editing=false, origineel='', dirty=false;
+
+function post(type, extra){ window.parent.postMessage(Object.assign({isStreamlitMessage:true,type},extra||{}),'*'); }
+function height(){
+  try{ const d=frame.contentDocument; const h=Math.max(d.documentElement.scrollHeight,d.body.scrollHeight);
+       frame.style.height=h+'px'; }catch(e){}
+  post('streamlit:setFrameHeight',{height:Math.ceil(document.documentElement.scrollHeight)+6});
+}
+function laad(html){
+  origineel=html; dirty=false; zetModus(false);
+  frame.srcdoc=html;
+}
+frame.addEventListener('load',()=>{
+  const d=frame.contentDocument;
+  // de eigen knoppenbalk van het verslag (PDF / nieuw tabblad) blijft werken; enkel hoogte opvolgen
+  try{ new ResizeObserver(height).observe(d.body); }catch(e){}
+  d.addEventListener('input',()=>{ if(editing){ dirty=true; status(); } });
+  [200,600,1500].forEach(t=>setTimeout(height,t));
+  height();
+});
+function zetModus(aan){
+  editing=aan;
+  try{
+    const d=frame.contentDocument;
+    if(d && d.body){
+      d.designMode = aan ? 'on' : 'off';
+      const tb=d.querySelector('.toolbar'); if(tb) tb.style.display = aan ? 'none' : '';
+    }
+  }catch(e){}
+  $('#bar').classList.toggle('on',aan);
+  $('#btnEdit').disabled=aan; $('#btnSave').disabled=!aan; $('#btnCancel').disabled=!aan;
+  status();
+}
+function status(){
+  $('#status').innerHTML = editing
+    ? (dirty ? '<b>Niet bewaarde wijzigingen</b> — klik op "Wijzigingen bewaren".' : 'Bewerkmodus: klik in de tekst en typ.')
+    : 'Klik op <b>Bewerken</b> en typ rechtstreeks in het verslag.';
+}
+$('#btnEdit').onclick=()=>zetModus(true);
+$('#btnCancel').onclick=()=>laad(origineel);
+$('#btnSave').onclick=()=>{
+  const d=frame.contentDocument;
+  d.designMode='off';
+  const tb=d.querySelector('.toolbar'); if(tb) tb.style.display='';
+  const html='<!doctype html>\n'+d.documentElement.outerHTML;
+  origineel=html; dirty=false; zetModus(false);
+  post('streamlit:setComponentValue',{dataType:'json',value:{action:'save',id:Date.now()+'-'+Math.random().toString(36).slice(2,7),html}});
+  $('#status').innerHTML='<b>Bewaard.</b>';
+};
+window.addEventListener('message',e=>{
+  const m=e.data||{};
+  if(m.type!=='streamlit:render') return;
+  const a=m.args||{};
+  if(a.nonce!==nonce){ nonce=a.nonce; laad(a.html||''); }
+});
+post('streamlit:componentReady',{apiVersion:1});
+</script>
+</body>
+</html>

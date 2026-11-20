@@ -521,6 +521,7 @@ PAGE_VOEDING = 'voeding'
 # De rekenlogica blijft ongewijzigd in components/prestatietest/index.html; de "brug" onderaan
 # dat bestand krijgt de atleet binnen en stuurt bij "Bewaren bij atleet" de test terug.
 _suite_component = _import_lokaal('suite').component
+_verslag_component = _import_lokaal('suite').verslag
 
 TOOLS = [
     {'key': PAGE_ATLETEN, 'icon': 'atleten', 'titel': 'Atleten & dashboard',
@@ -1110,6 +1111,34 @@ def traject_html(intake_v, plan, bel=None, summary=None):
                                else 'Intake · Jaarplanning')
 
 
+def _traject_bewaar(atleet_naam, html, nieuw=False):
+    """Bewaart het trajectverslag bij de atleet. Aanpassingen werken hetzelfde document bij;
+    'opnieuw maken' (nieuw=True) maakt een nieuwe versie aan."""
+    atleet = st.session_state.get('atleet')
+    if not (atleet and atleet['naam'] == atleet_naam and store.beschikbaar()):
+        return
+    rid_key = f'traject_rid_{atleet_naam}'
+    try:
+        rec = store.bewaar_record(atleet['id'], 'document', f'Trajectverslag {date.today().strftime("%d/%m/%Y")}',
+                                  {'type': 'traject', 'html': html},
+                                  record_id=None if nieuw else st.session_state.get(rid_key))
+        st.session_state[rid_key] = rec.get('id') or st.session_state.get(rid_key)
+        return True
+    except Exception as ex:
+        st.warning(f'Verslag niet bewaard. {store.leesbare_fout(ex)}')
+        return False
+
+
+def _laatste_traject(atleet):
+    try:
+        for r in store.lijst_records(atleet['id'], soort='document', met_data=True):
+            if (r.get('data') or {}).get('type') == 'traject' and r['data'].get('html'):
+                return r
+    except Exception:
+        pass
+    return None
+
+
 def render_trajectverslag(atleet_naam, intake_v, plan, bel, titel='Trajectverslag voor de atleet', sleutel='jp'):
     """Eén klik: intake + belastbaarheid + jaarplanning samen in één verslag voor de atleet."""
     st.divider()
@@ -1131,33 +1160,68 @@ def render_trajectverslag(atleet_naam, intake_v, plan, bel, titel='Trajectversla
     eigen = bool(atleet and atleet['naam'] == atleet_naam)
     # Na een herstart: de laatst bewaarde versie terug tonen
     if key not in st.session_state and eigen and store.beschikbaar():
-        try:
-            rec = store.laatste_record(atleet['id'], 'traject')
-            if rec and (rec.get('data') or {}).get('html'):
-                st.session_state[key] = rec['data']['html']
-        except Exception:
-            pass
+        rec = _laatste_traject(atleet)
+        if rec:
+            st.session_state[key] = rec['data']['html']
+            st.session_state[f'traject_rid_{atleet_naam}'] = rec['id']
     label = 'Trajectverslag opnieuw maken' if st.session_state.get(key) else 'Trajectverslag maken'
     if st.button(label, type='primary', key=f'traject_maak_{sleutel}', use_container_width=True):
         summary = (st.session_state.get('athletes', {}).get(atleet_naam) or {}).get('summary')
         html = traject_html(intake_v, plan, bel=bel, summary=summary)
         st.session_state[key] = html
-        if eigen and store.beschikbaar():
-            try:
-                store.bewaar_record(atleet['id'], 'traject', f'Trajectverslag {date.today().strftime("%d/%m/%Y")}',
-                                    {'html': html})
-                st.toast(f'Trajectverslag bewaard bij {atleet_naam}.')
-            except Exception as ex:
-                st.warning(f'Verslag gemaakt, maar niet bewaard. {store.leesbare_fout(ex)}')
+        st.session_state[f'{key}_nonce'] = st.session_state.get(f'{key}_nonce', 0) + 1
+        # Soort 'document' + type-label: de records-tabel in Supabase laat enkel een vaste
+        # lijst soorten toe, zo hoeft daar niets aan aangepast te worden.
+        if _traject_bewaar(atleet_naam, html, nieuw=True):
+            st.toast(f'Trajectverslag bewaard bij {atleet_naam}.')
     html = st.session_state.get(key)
     if html:
+        flash = st.session_state.pop(f'{key}_flash', None)
+        if flash:
+            st.success(flash)
         c1, c2 = st.columns([1, 2])
         c1.download_button('Download trajectverslag (.html)', data=html, use_container_width=True,
                            file_name=f"Trajectverslag_{atleet_naam.replace(' ', '_')}.html", mime='text/html',
                            key=f'traject_dl_{sleutel}')
-        c2.caption('PDF: klik in het verslag op "Bewaar als PDF". Iets aangepast in intake, analyse of doelen? '
-                   'Klik op "Trajectverslag opnieuw maken".')
-        components.html(html, height=1250, scrolling=True)
+        c2.caption('Aanpassen kan op twee manieren: geef hieronder een opmerking aan de AI, of klik in het '
+                   'verslag op **Bewerken** en typ rechtstreeks. Let op: "opnieuw maken" bouwt het verslag '
+                   'opnieuw op uit intake, analyse en doelen — je aanpassingen gaan dan verloren.')
+
+        # 1) Opmerking → de AI past het verslag aan
+        with st.form(f'traject_opm_{sleutel}', clear_on_submit=True):
+            opm = st.text_area('Opmerking voor de AI', height=90,
+                               placeholder='bv. "Maak het waarom persoonlijker en noem zijn dochter Lien bij naam." '
+                                           'of "Voeg bij Basis 1 toe dat hij op zondag lang fietst."')
+            verwerk = st.form_submit_button('Opmerking verwerken', type='primary')
+        if verwerk and opm.strip():
+            ai_sleutel = intake.openai_sleutel()
+            if not ai_sleutel:
+                st.warning('Er is nog geen OpenAI-sleutel ingesteld (OPENAI_API_KEY in de secrets). '
+                           'Rechtstreeks bewerken werkt wel.')
+            else:
+                with st.spinner('Het verslag wordt aangepast…'):
+                    try:
+                        nieuw, uitleg = intake.bewerk_verslag(html, opm, ai_sleutel)
+                    except Exception as ex:
+                        nieuw, uitleg = None, None
+                        st.error(intake.leesbare_fout(ex))
+                if nieuw is not None:
+                    if nieuw != html:
+                        st.session_state[key] = nieuw
+                        st.session_state[f'{key}_nonce'] = st.session_state.get(f'{key}_nonce', 0) + 1
+                        _traject_bewaar(atleet_naam, nieuw)
+                    st.session_state[f'{key}_flash'] = uitleg
+                    st.rerun()
+
+        # 2) Rechtstreeks in het verslag typen
+        waarde = _verslag_component(html=html, nonce=f"{atleet_naam}-{st.session_state.get(f'{key}_nonce', 0)}",
+                                    key=f'verslag_ed_{sleutel}', default=None)
+        if isinstance(waarde, dict) and waarde.get('action') == 'save' \
+                and waarde.get('id') != st.session_state.get(f'{key}_laatst'):
+            st.session_state[f'{key}_laatst'] = waarde.get('id')
+            st.session_state[key] = waarde.get('html') or html
+            if _traject_bewaar(atleet_naam, st.session_state[key]):
+                st.toast('Wijzigingen bewaard bij ' + atleet_naam + '.')
 
 
 def render_jaarplanning_page():
@@ -1893,7 +1957,8 @@ def _render_documenten(atleet):
     for r in records:
         c1, c2, c3 = st.columns([5, 1.2, 1])
         datum = pd.to_datetime(r['aangemaakt_op']).strftime('%d %b %Y')
-        c1.markdown(f"**{store.SOORTEN.get(r['soort'], r['soort'])}** — {r.get('titel') or ''}  \n"
+        soortnaam = 'Trajectverslag' if (r.get('data') or {}).get('type') == 'traject' else store.SOORTEN.get(r['soort'], r['soort'])
+        c1.markdown(f"**{soortnaam}** — {r.get('titel') or ''}  \n"
                     f"<span style='color:{DM_MUTED};font-size:0.8rem'>{datum}</span>", unsafe_allow_html=True)
         if r['soort'] == 'belastbaarheid':
             if c2.button('Openen', key=f"rec_open_{r['id']}", use_container_width=True):
@@ -1907,7 +1972,7 @@ def _render_documenten(atleet):
             if c2.button('Openen', key=f"rec_open_{r['id']}", use_container_width=True):
                 _suite_laad(r)
                 goto(PAGE_VOEDING if r['soort'] == 'voeding' else PAGE_TESTEN)
-        elif r['soort'] == 'traject':
+        elif r['soort'] == 'traject' or (r.get('data') or {}).get('type') == 'traject':
             c2.download_button('Download', data=(r.get('data') or {}).get('html', ''),
                                file_name=f"Trajectverslag_{atleet['naam'].replace(' ', '_')}_{datum.replace(' ', '')}.html",
                                mime='text/html', key=f"rec_dl_{r['id']}", use_container_width=True)

@@ -885,3 +885,72 @@ def verslag_html(v, extra_html='', titel='Intakeverslag', eyebrow='Intake · Ver
 <div class="toolbar"><button onclick="dmOpen()">Open in nieuw tabblad</button><button class="primary" onclick="dmPrint()">Bewaar als PDF</button></div>
 <div class="report">{cover}{body}</div>
 </body></html>"""
+
+
+# ---------------------------------------------------------------------------
+# Verslag bijwerken met een opmerking van de coach (AI)
+# De AI krijgt enkel de tekstfragmenten van het verslag (genummerd), nooit de HTML zelf:
+# zo kan ze de opmaak, het logo of de structuur niet breken. Ze geeft enkel de fragmenten
+# terug die moeten veranderen; de rest blijft letterlijk staan.
+# ---------------------------------------------------------------------------
+BEWERK_PROMPT = """Je past een verslag aan dat een coach van De Musculatuur aan een atleet bezorgt (intake, belastbaarheid, jaarplanning).
+Je krijgt de tekst van het verslag als genummerde fragmenten en een opmerking van de coach.
+Voer de opmerking uit door fragmenten te herschrijven. Regels:
+- Wijzig enkel wat nodig is voor de opmerking; laat al het andere ongemoeid.
+- Moet er iets bijkomen, voeg het toe aan het fragment waar het inhoudelijk het best past (bv. een extra zin achter een bestaande).
+- Behoud de toon: Nederlands (Vlaams), helder, warm en motiverend, kort en to the point.
+- Verzin geen feiten, cijfers of data die niet in het verslag of de opmerking staan.
+- Een fragment leegmaken mag (lege tekst) als de coach iets wil schrappen.
+Antwoord uitsluitend met JSON: {"wijzigingen": [{"id": <nummer>, "tekst": "<nieuwe tekst>"}], "uitleg": "<één korte zin wat je aangepast hebt>"}"""
+
+
+def _fragmenten(soup):
+    """Alle zichtbare tekstfragmenten van het verslag, in leesvolgorde."""
+    from bs4 import NavigableString, Comment
+    root = soup.select_one('.report') or soup.body or soup
+    uit = []
+    for node in root.descendants:
+        if not isinstance(node, NavigableString) or isinstance(node, Comment):
+            continue
+        if node.find_parent(['script', 'style']) or node.find_parent(class_='toolbar'):
+            continue
+        if node.strip():
+            uit.append(node)
+    return uit
+
+
+def bewerk_verslag(html, opmerking, api_key, model=None):
+    """Past het verslag aan volgens de opmerking van de coach. Geeft (nieuwe_html, uitleg) terug."""
+    from bs4 import BeautifulSoup
+    soup = BeautifulSoup(html, 'html.parser')
+    frags = _fragmenten(soup)
+    tekst = '\n'.join(f'[{i}] {" ".join(str(f).split())}' for i, f in enumerate(frags))
+    client = _client(api_key)
+    r = client.chat.completions.create(
+        model=model or model_tekst(),
+        response_format={'type': 'json_object'},
+        messages=[{'role': 'system', 'content': BEWERK_PROMPT},
+                  {'role': 'user', 'content': f'OPMERKING VAN DE COACH:\n{opmerking.strip()}\n\nVERSLAG (fragmenten):\n{tekst}'}],
+    )
+    inhoud = (r.choices[0].message.content or '').strip()
+    try:
+        data = json.loads(inhoud)
+    except json.JSONDecodeError:
+        m = re.search(r'\{.*\}', inhoud, flags=re.S)
+        data = json.loads(m.group(0)) if m else {}
+    n = 0
+    for w in data.get('wijzigingen') or []:
+        try:
+            i = int(w.get('id'))
+        except (TypeError, ValueError):
+            continue
+        if 0 <= i < len(frags):
+            frags[i].replace_with(str(w.get('tekst') or ''))
+            n += 1
+    uitleg = str(data.get('uitleg') or '').strip()
+    if not n:
+        return html, uitleg or 'Er werd niets aangepast — formuleer de opmerking eventueel concreter.'
+    uit = str(soup)
+    if not uit.lstrip().lower().startswith('<!doctype'):
+        uit = '<!doctype html>\n' + uit
+    return uit, uitleg or f'{n} fragment(en) aangepast.'
