@@ -606,7 +606,8 @@ def verslag_html(v):
     # 6 · Pakket
     def pakket_kaart(p):
         gekozen = p['key'] == v['pakket']
-        return (f'<div class="p{" gekozen" if gekozen else ""}">{"<span class=\"badge\">Gekozen</span>" if gekozen else ""}'
+        badge = '<span class="badge">Gekozen</span>' if gekozen else ''
+        return (f'<div class="p{" gekozen" if gekozen else ""}">{badge}'
                 f'<div class="pn">{_e(p["naam"])}</div><div class="pp">{_e(p["prijs"])}</div>'
                 f'<ul>{"".join(f"<li>{_e(x)}</li>" for x in p["punten"])}</ul></div>')
     pakket_tekst = (f'We gaan verder met het pakket <b>{_e(next(p["naam"] for p in PAKKETTEN if p["key"] == v["pakket"]))}</b>.'
