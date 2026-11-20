@@ -425,6 +425,14 @@ div[data-testid="stAlert"] {{ border-radius: 14px; border: 1px solid var(--line)
 .dm-athlete-name {{ font-weight: 700; font-size: 1.08rem; color: var(--ink); letter-spacing: -0.015em; margin-top: .85rem; }}
 .dm-athlete-meta {{ font-size: .82rem; color: var(--muted); margin-top: .1rem; }}
 .dm-athlete-goal {{ font-size: .87rem; color: var(--text); margin-top: .6rem; line-height: 1.5; }}
+.dm-kv-grid {{ grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); }}
+.dm-kv-grid .dm-kv-item {{ border-top: none; padding-top: 0; }}
+.dm-zones {{ width: 100%; border-collapse: collapse; margin-top: 1.1rem; font-size: .86rem; }}
+.dm-zones th {{ text-align: left; font-size: .68rem; letter-spacing: .12em; text-transform: uppercase; color: var(--muted);
+    font-weight: 700; padding: .45rem .6rem; border-bottom: 1px solid var(--line); }}
+.dm-zones td {{ padding: .5rem .6rem; border-bottom: 1px solid var(--line); color: var(--text); font-variant-numeric: tabular-nums; }}
+.dm-zones tr:last-child td {{ border-bottom: none; }}
+[data-testid="stCustomComponentV1"], iframe[title^="dm_prestatietest"] {{ border: none; }}
 </style>
 """
 
@@ -490,14 +498,14 @@ PAGE_BELASTBAARHEID = 'belastbaarheid'
 PAGE_JAARPLANNING = 'jaarplanning'
 PAGE_DASHBOARD = 'dashboard'
 
-# De prestatietest-suite is een zelfstandige HTML-tool die Streamlit enkel uitlevert
-# (zie static/prestatietest.html en enableStaticServing in .streamlit/config.toml).
-#
-# Bewust een RELATIEF pad, geen leidende slash. Lokaal staat de app op '/' en is het bestand
-# dus /app/static/..., maar op Streamlit Cloud draait de app onder het prefix /~/+/ en is het
-# /~/+/app/static/... Een relatief pad wordt door de browser tegen de juiste basis opgelost en
-# klopt daarom in beide omgevingen; een vast absoluut pad kan dat per definitie niet.
-SUITE_URL = 'app/static/prestatietest.html'
+PAGE_TESTEN = 'testen'
+PAGE_VOEDING = 'voeding'
+
+# De prestatietest-suite (lactaat, CP, CSS, looptest, voeding) is een uitgebreide HTML/JS-tool.
+# Ze draait als Streamlit-component binnen de app: zelfde zijbalk, login en actieve atleet.
+# De rekenlogica blijft ongewijzigd in components/prestatietest/index.html; de "brug" onderaan
+# dat bestand krijgt de atleet binnen en stuurt bij "Bewaren bij atleet" de test terug.
+_suite_component = _import_lokaal('suite').component
 
 TOOLS = [
     {'key': PAGE_ATLETEN, 'icon': 'atleten', 'titel': 'Atleten & dashboard',
@@ -512,10 +520,10 @@ TOOLS = [
     {'key': PAGE_JAARPLANNING, 'icon': 'planning', 'titel': 'Jaarplanning',
      'desc': 'Macro- en mesocyclus-voorstel per A-doel volgens Friel en Olbrecht, '
              'terugwerkend vanaf de wedstrijddatum en afgestemd op de huidige belastbaarheid.'},
-    {'url': SUITE_URL, 'icon': 'test', 'titel': 'Prestatietesten',
+    {'key': PAGE_TESTEN, 'icon': 'test', 'titel': 'Prestatietesten',
      'desc': 'Lactaattest (LT1/LT2 en 7 zones), Critical Power, Critical Swim Speed en de '
              '3/5 km looptest — met printbaar verslag per atleet.'},
-    {'url': f'{SUITE_URL}#voeding', 'icon': 'voeding', 'titel': 'Voedingsplan',
+    {'key': PAGE_VOEDING, 'icon': 'voeding', 'titel': 'Voedingsplan',
      'desc': 'Wedstrijdvoeding per minuut uitgeschreven: gels, vocht en zout, afgestemd op '
              'afstand, niveau en weer (ACSM-richtwaarden).'},
 ]
@@ -1543,12 +1551,13 @@ def render_dashboard_page():
         goto(PAGE_BELASTBAARHEID)
     if a3.button('Jaarplanning', key='dash_jp', type='primary', use_container_width=True):
         goto(PAGE_JAARPLANNING)
-    a4.markdown(f'<a href="{SUITE_URL}" target="_blank" rel="noopener" class="dm-tool-link">Prestatietesten ↗</a>',
-                unsafe_allow_html=True)
+    if a4.button('Prestatietest', key='dash_test', use_container_width=True):
+        _suite_laad(None)
+        goto(PAGE_TESTEN)
 
     st.markdown('<div style="height:1.2rem"></div>', unsafe_allow_html=True)
-    t_over, t_intake, t_bel, t_jp, t_docs, t_prof = st.tabs(
-        ['Overzicht', 'Intake', 'Belastbaarheid', 'Jaarplanning', 'Documenten', 'Profiel'])
+    t_over, t_intake, t_bel, t_jp, t_test, t_docs, t_prof = st.tabs(
+        ['Overzicht', 'Intake', 'Belastbaarheid', 'Jaarplanning', 'Testen', 'Documenten', 'Profiel'])
 
     with t_over:
         links, rechts = st.columns([1.15, 1], gap='large')
@@ -1607,6 +1616,9 @@ def render_dashboard_page():
             st.caption('Nog geen A-doelen. Open de jaarplanning hierboven — wedstrijden uit de intake '
                        'worden daar als voorstel klaargezet.')
 
+    with t_test:
+        _render_testresultaten(atleet)
+
     with t_docs:
         _render_documenten(atleet)
 
@@ -1649,9 +1661,9 @@ def _render_profiel(atleet):
 
 
 def _render_documenten(atleet):
-    st.caption('Belastbaarheidsanalyses, intakes en A-doelen komen hier vanzelf bij. Testen en voedingsplannen '
-               'uit de prestatietest-suite voeg je toe via "Project opslaan" daar → JSON hier uploaden. '
-               'Downloaden en in de suite "Project laden" brengt ze weer terug.')
+    st.caption('Alles wat je voor deze atleet maakt komt hier vanzelf bij: intakes, analyses, A-doelen en '
+               'prestatietesten (via "Bewaren bij atleet" in de test). Een oudere test als JSON-bestand '
+               '("Project opslaan") kan je hieronder nog toevoegen.')
 
     nr = st.session_state.get('doc_upload_nr', 0)
     up = st.file_uploader('Export uit de prestatietest-suite (.json)', type=['json'], key=f'doc_upload_{nr}')
@@ -1689,7 +1701,11 @@ def _render_documenten(atleet):
             if c2.button('Openen', key=f"rec_open_{r['id']}", use_container_width=True):
                 _open_intake_record(r)
                 goto(PAGE_INTAKE)
-        elif r['soort'] in ('prestatietest', 'voeding', 'document'):
+        elif r['soort'] in ('prestatietest', 'voeding'):
+            if c2.button('Openen', key=f"rec_open_{r['id']}", use_container_width=True):
+                _suite_laad(r)
+                goto(PAGE_VOEDING if r['soort'] == 'voeding' else PAGE_TESTEN)
+        elif r['soort'] == 'document':
             bestandsnaam = f"{atleet['naam'].replace(' ', '_')}_{r['soort']}_{datum.replace(' ', '')}.json"
             c2.download_button('Download', data=json.dumps(r['data'], ensure_ascii=False, indent=2),
                                file_name=bestandsnaam, mime='application/json',
@@ -1935,6 +1951,129 @@ def render_intake_page():
         components.html(html, height=1250, scrolling=True)
 
 
+# ---------------------------------------------------------------------------
+# Prestatietesten & voeding: de suite als component in de app
+# ---------------------------------------------------------------------------
+
+def _suite_laad(record):
+    """Zet een bewaarde test klaar om te openen (of None = nieuwe, lege test). De nonce zegt de
+    suite dat ze opnieuw moet laden; zonder nieuwe nonce blijft het werk van de coach staan."""
+    st.session_state['suite_project'] = (record or {}).get('data')
+    st.session_state['suite_record_id'] = (record or {}).get('id')
+    st.session_state['suite_titel'] = (record or {}).get('titel')
+    st.session_state['suite_nonce'] = st.session_state.get('suite_nonce', 0) + 1
+
+
+def _suite_bewaar(atleet, waarde):
+    project = waarde.get('project') or {}
+    samenvatting = waarde.get('summary') or {}
+    tt = project.get('testType', 'lactate')
+    soort = 'voeding' if tt == 'voeding' else 'prestatietest'
+    datum = (project.get('athlete') or {}).get('date') or date.today().isoformat()
+    titel = f"{SUITE_NAMEN.get(tt, 'Test')} {datum}".strip()
+    data = dict(project)
+    data['summary'] = samenvatting
+    # Een geopende test wordt bijgewerkt; een nieuwe test wordt een nieuw document.
+    rid = st.session_state.get('suite_record_id')
+    rec = store.bewaar_record(atleet['id'], soort, titel, data, record_id=rid)
+    st.session_state['suite_record_id'] = rec.get('id', rid)
+    st.session_state['suite_titel'] = titel
+    return titel
+
+
+def render_testen_page(voeding=False):
+    if voeding:
+        page_header('Wedstrijdvoeding', 'Voeding per minuut uitgeschreven: gels, vocht en zout, afgestemd op '
+                    'afstand, niveau en weer (ACSM-richtwaarden).', eyebrow='Voedingsplan')
+    else:
+        page_header('Prestatietesten', 'Lactaattest (LT1/LT2 en zones), Critical Power, Critical Swim Speed en '
+                    'de 3/5 km looptest — met printbaar verslag.', eyebrow='Testen')
+
+    atleet = st.session_state.get('atleet')
+    kan_bewaren = bool(atleet and store.beschikbaar())
+    soort = 'voeding' if voeding else 'prestatietest'
+
+    # Eerdere testen van deze atleet openen, of een nieuwe beginnen
+    if kan_bewaren:
+        try:
+            eerder = store.lijst_records(atleet['id'], soort=soort)
+        except Exception:
+            eerder = []
+        c1, c2, c3 = st.columns([3, 1.1, 1.1])
+        labels = {r['id']: f"{r.get('titel') or 'Test'} · {pd.to_datetime(r['aangemaakt_op']).strftime('%d %b %Y')}"
+                  for r in eerder}
+        keuze = c1.selectbox('Eerdere testen', [''] + list(labels), format_func=lambda k: labels.get(k, '— kies een eerdere test —'),
+                             label_visibility='collapsed', key=f'suite_keuze_{soort}')
+        if c2.button('Openen', key=f'suite_open_{soort}', disabled=not keuze, use_container_width=True):
+            _suite_laad(store.haal_record(keuze))
+            st.rerun()
+        if c3.button('Nieuwe test', key=f'suite_nieuw_{soort}', use_container_width=True):
+            _suite_laad(None)
+            st.rerun()
+        if st.session_state.get('suite_record_id'):
+            st.caption(f"Geopend: **{st.session_state.get('suite_titel') or 'bewaarde test'}** — "
+                       f"\"Bewaren bij atleet\" werkt deze test bij.")
+    elif not atleet:
+        st.caption('Kies een atleet in de zijbalk: dan staan zijn gegevens meteen ingevuld en bewaar je de '
+                   'test met één klik in zijn dashboard. Zonder atleet werkt de suite ook, dan bewaar je via '
+                   '"Project opslaan".')
+
+    project = st.session_state.get('suite_project')
+    if project and (project.get('testType') == 'voeding') != voeding:
+        project = None      # een voedingsplan opent niet in de testen-pagina en omgekeerd
+    args = {
+        'nonce': f"{soort}-{st.session_state.get('suite_nonce', 0)}-{(atleet or {}).get('id', '')}",
+        'project': project,
+        'testType': 'voeding' if voeding else None,
+        'canSave': kan_bewaren,
+        'athlete': {'name': atleet.get('naam', ''), 'sport': atleet.get('sport') or '',
+                    'goal': atleet.get('doelen') or ''} if atleet else None,
+    }
+    waarde = _suite_component(**args, key=f'suite_{soort}', default=None)
+
+    if isinstance(waarde, dict) and waarde.get('action') == 'save' \
+            and waarde.get('id') != st.session_state.get('suite_laatst_bewaard'):
+        st.session_state['suite_laatst_bewaard'] = waarde.get('id')
+        if kan_bewaren:
+            try:
+                titel = _suite_bewaar(atleet, waarde)
+                st.toast(f'{titel} bewaard bij {atleet["naam"]}.')
+            except Exception as e:
+                st.error(f'Bewaren lukte niet: {e}')
+
+
+def _render_testresultaten(atleet):
+    """Kerncijfers en zones van de bewaarde testen — de bron voor trainingszones in de planning."""
+    try:
+        recs = [r for r in store.lijst_records(atleet['id'], met_data=True)
+                if r['soort'] in ('prestatietest', 'voeding')]
+    except Exception as e:
+        st.caption(f'Testen konden niet geladen worden: {e}')
+        return
+    if not recs:
+        st.caption('Nog geen testen. Open "Prestatietest" bovenaan, vul de test in en klik op '
+                   '"Bewaren bij atleet" — de resultaten verschijnen dan hier.')
+        return
+    for r in recs:
+        som = (r.get('data') or {}).get('summary') or {}
+        datum = pd.to_datetime(r['aangemaakt_op']).strftime('%d %b %Y')
+        kpis = ''.join(f'<div class="dm-kv-item"><div class="dm-kv-k">{intake._e(k)}</div>'
+                       f'<div class="dm-kv-v">{intake._e(v)}</div></div>' for k, v in som.get('kpis', []))
+        zones = ''
+        if som.get('zones'):
+            rijen = ''.join(f'<tr><td><b>{intake._e(z["name"])}</b> {intake._e(z.get("label", ""))}</td>'
+                            f'<td>{intake._e(z["hr"])}</td><td>{intake._e(z["tempo"])}</td></tr>' for z in som['zones'])
+            zones = (f'<table class="dm-zones"><thead><tr><th>Zone</th><th>Hartslag</th><th>Tempo / vermogen</th>'
+                     f'</tr></thead><tbody>{rijen}</tbody></table>')
+        inhoud = (f'<div class="dm-kv dm-kv-grid">{kpis}</div>' if kpis else
+                  '<p style="color:var(--muted);margin:0">Geen samenvatting — open de test om de resultaten te zien.</p>')
+        st.markdown(f'<div class="dm-card"><div class="dm-card-title">{intake._e(r.get("titel") or "Test")}'
+                    f'<span class="dm-card-sub">{datum}</span></div>{inhoud}{zones}</div>', unsafe_allow_html=True)
+        if st.button('Openen', key=f"testres_open_{r['id']}"):
+            _suite_laad(r)
+            goto(PAGE_VOEDING if r['soort'] == 'voeding' else PAGE_TESTEN)
+
+
 def render_analyse_sidebar():
     """Upload-flow: hoort enkel bij de Belastbaarheidsanalyse-tool."""
     st.markdown('<div class="dm-sidebar-section">Nieuwe analyse</div>', unsafe_allow_html=True)
@@ -2020,6 +2159,10 @@ def main():
 
     if page == PAGE_ATLETEN:
         render_atleten_page()
+    elif page == PAGE_TESTEN:
+        render_testen_page()
+    elif page == PAGE_VOEDING:
+        render_testen_page(voeding=True)
     elif page == PAGE_DASHBOARD:
         render_dashboard_page()
     elif page == PAGE_INTAKE:

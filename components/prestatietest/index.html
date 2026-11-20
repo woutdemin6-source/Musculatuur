@@ -283,10 +283,32 @@ textarea.in:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px r
 .ttbtn.active{background:#FBF5F3;box-shadow:0 0 0 3px rgba(79,0,11,.08)}
 .rescard .rval{font-weight:700;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
 input:focus,select:focus,textarea:focus{outline:none;border-color:var(--green)!important;box-shadow:0 0 0 3px rgba(99,185,149,.18)}
+
+/* ---------- Ingebed in de app ----------
+   Binnen de Streamlit-app staan logo, navigatie en atleet al in de zijbalk: de eigen topbar
+   valt weg en de pagina krijgt geen eigen achtergrond/marges, zodat ze naadloos in de app zit. */
+.dm-embed body{background:transparent}
+.dm-embed .app{padding:0 2px 24px;max-width:none}
+.dm-embed .topbar{display:none}
+.dm-only{display:none!important}
+.dm-embed .dm-only{display:inline-flex!important}
+.dm-linkbar{display:none}
+.dm-embed .dm-linkbar{display:flex;align-items:center;gap:10px;background:var(--surface);border:1px solid var(--line);
+  border-radius:999px;padding:8px 10px 8px 18px;margin-bottom:18px;box-shadow:var(--shadow);font-size:14px;color:var(--muted)}
+.dm-linkbar b{color:var(--ink)}
+.dm-linkbar .spacer{flex:1}
+@media print{.dm-linkbar{display:none!important}}
 </style>
 </head>
 <body>
 <div class="app">
+
+  <!-- Koppeling met de app: enkel zichtbaar wanneer de suite in de app draait -->
+  <div class="dm-linkbar no-print" id="dmLinkbar">
+    <span id="dmLinkText">Geen atleet gekozen — kies er een in de zijbalk om testen te bewaren.</span>
+    <span class="spacer"></span>
+    <button class="btn primary sm dm-only" id="dmSaveTop">Bewaren bij atleet</button>
+  </div>
 
   <!-- top bar -->
   <div class="topbar no-print">
@@ -558,6 +580,7 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:var(--green)!i
     <div class="card no-print" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
       <div><h2 style="font-size:16px"><span class="ic">◫</span> Verslag</h2><p class="sub" style="margin:4px 0 0">Klaar om te delen. Print of bewaar als PDF, of sla je project op om later verder te werken.</p></div>
       <div class="btnrow">
+        <button class="btn primary sm dm-only" id="dmSave">Bewaren bij atleet</button>
         <button class="btn sm" id="saveProj">Project opslaan</button>
         <button class="btn sm" id="loadProjBtn">Project laden</button>
         <input type="file" id="loadProjInput" accept=".json,application/json" class="hide">
@@ -1704,6 +1727,76 @@ function applyDeepLink(){
 (function(){ try{ applyDeepLink(); }catch(e){} })();
 window.addEventListener("hashchange",()=>{ if(applyDeepLink()){ applyTestType(); refreshAnalysis(); } });
 applyLogo();applyBrandName();bindInputs();applyTestType();applyLactSport();renderDataTable();initSpeech();refreshAnalysis();
+
+/* =========================================================================
+   BRUG MET DE STREAMLIT-APP
+   De suite draait als Streamlit-component (iframe). Via postMessage krijgt ze de actieve
+   atleet en eventueel een bewaard project binnen, en stuurt ze bij "Bewaren bij atleet" de
+   volledige test plus een samenvatting terug. Buiten de app (los geopend) doet dit niets.
+   ========================================================================= */
+const DM = {embedded: window.parent !== window, nonce: null, canSave: false, athlete: null};
+function dmPost(type, extra){ try{ window.parent.postMessage(Object.assign({isStreamlitMessage:true, type}, extra||{}), "*"); }catch(e){} }
+function dmHeight(){ dmPost("streamlit:setFrameHeight", {height: Math.ceil(document.documentElement.scrollHeight) + 8}); }
+function dmSummary(){
+  const t=state.testType, meta=TEST_META[t]||{}, s={testType:t, name:meta.name||"Test", date:state.athlete.date||"", kpis:[]};
+  try{
+    if(t==="lactate"){
+      const u=LU(), a=thresholdInfo("lt1"), b=thresholdInfo("lt2"), m=maxInfo();
+      s.sport=u.disc;
+      if(a) s.kpis.push(["LT1", u.fmt(a.v)+u.suf+" · "+a.hr+" bpm"]);
+      if(b) s.kpis.push(["LT2", u.fmt(b.v)+u.suf+" · "+b.hr+" bpm"]);
+      if(m && m.hr) s.kpis.push(["Max. hartslag", m.hr+" bpm"]);
+      const z=computeZones();
+      if(z) s.zones=z.map(x=>({name:x.name, label:x.label, hr:x.hrLo+"–"+x.hrHi+" bpm", tempo:fmtRange(x.spLo,x.spHi)+u.suf}));
+    } else if(t==="cp"){
+      const r=genThreshold(); if(r){ s.kpis.push(["Critical Power", Math.round(r.CP)+" W"]); s.kpis.push(["W′", (r.Wp/1000).toFixed(1)+" kJ"]); }
+    } else if(t==="css"){
+      const r=genThreshold(); if(r){ s.kpis.push(["CSS", fmtTime(100/r.CSS)+" /100 m"]); }
+    } else if(t==="cv"){
+      const r=genThreshold(); if(r){ s.kpis.push(["Critical Velocity", fmtTime(1000/r.CV)+" /km"]); s.kpis.push(["D′", Math.round(r.Dp)+" m"+(r.single?" (aangenomen)":"")]); }
+    } else if(t==="voeding"){
+      const p=nutriPlan(); if(p){ s.kpis.push(["Wedstrijd", p.R.label]); s.kpis.push(["Duur", hm(p.total)]);
+        if(isFinite(p.cph)) s.kpis.push(["Koolhydraten", Math.round(p.cph)+" g/u"]);
+        if(isFinite(p.fph)) s.kpis.push(["Vocht", Math.round(p.fph)+" ml/u"]);
+        if(isFinite(p.naph)) s.kpis.push(["Natrium", Math.round(p.naph)+" mg/u"]); }
+    }
+  }catch(e){}
+  return s;
+}
+function dmSave(){
+  if(!DM.canSave){ toast("Kies eerst een atleet in de zijbalk.", true); return; }
+  const project=JSON.parse(JSON.stringify(state)); delete project.apiKey; delete project.logo;
+  dmPost("streamlit:setComponentValue", {dataType:"json", value:{action:"save", id:Date.now()+"-"+Math.random().toString(36).slice(2,7), project, summary:dmSummary()}});
+  toast("Bewaard bij "+(DM.athlete&&DM.athlete.name||"de atleet"));
+}
+function dmApplyArgs(a){
+  DM.canSave=!!a.canSave; DM.athlete=a.athlete||null;
+  const txt=$("#dmLinkText");
+  if(txt) txt.innerHTML = DM.athlete&&DM.athlete.name
+    ? "Gekoppeld aan <b>"+esc(DM.athlete.name)+"</b>"+(DM.canSave?" — bewaar de test om hem in het dashboard te zien.":" — opslag niet beschikbaar.")
+    : "Geen atleet gekozen — kies er een in de zijbalk om testen te bewaren.";
+  $$(".dm-only").forEach(b=>b.disabled=!DM.canSave);
+  if(a.nonce===DM.nonce) return;          // zelfde laadopdracht: gebruikerswerk niet overschrijven
+  DM.nonce=a.nonce;
+  if(a.project){ const keepLogo=state.logo; Object.assign(state, JSON.parse(JSON.stringify(a.project))); state.logo=keepLogo; }
+  if(a.testType){ state.testType=a.testType; }
+  if($("#testTypeCard")) $("#testTypeCard").style.display = a.testType ? "none" : "";
+  if(DM.athlete && !a.project){
+    state.athlete.name=DM.athlete.name||""; state.athlete.sport=DM.athlete.sport||state.athlete.sport;
+    state.athlete.goal=DM.athlete.goal||state.athlete.goal;
+    if(!state.athlete.date) state.athlete.date=new Date().toISOString().slice(0,10);
+  }
+  if(a.coach){ Object.assign(state.coach, a.coach); }
+  bootFromState(); goStep(a.project ? 3 : 0); setTimeout(dmHeight,60);
+}
+if(DM.embedded){
+  document.documentElement.classList.add("dm-embed");
+  window.addEventListener("message", e=>{ const d=e.data; if(d && d.type==="streamlit:render") dmApplyArgs(d.args||{}); });
+  $("#dmSave").addEventListener("click", dmSave); $("#dmSaveTop").addEventListener("click", dmSave);
+  new ResizeObserver(()=>dmHeight()).observe(document.body);
+  window.scrollTo = function(){};            // de app scrolt zelf; binnen de iframe heeft dit geen zin
+  dmPost("streamlit:componentReady", {apiVersion:1});
+}
 </script>
 </body>
 </html>
