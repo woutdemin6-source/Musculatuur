@@ -210,21 +210,59 @@ section[data-testid="stSidebar"] .dm-step {{
 }}
 .dm-sidebar-divider {{ height: 1px; background: var(--line); margin: 1.3rem 0; border: none; }}
 
-/* Logo in de sidebar — tevens knop terug naar het overzicht */
-section[data-testid="stSidebar"] .st-key-logo_home button,
-section[data-testid="stSidebar"] .st-key-logo_home button:hover,
-section[data-testid="stSidebar"] .st-key-logo_home button:focus,
-section[data-testid="stSidebar"] .st-key-logo_home button:active,
-.dm-logo-static {{
-    {_LOGO_CSS} background-color: transparent !important;
-    background-size: contain !important; background-repeat: no-repeat !important;
-    background-position: left center !important; mix-blend-mode: multiply;
-    border: none !important; box-shadow: none !important; padding: 0 !important;
-    width: 118px !important; height: 118px !important; min-height: 118px !important;
-    margin: 0 0 .2rem -6px;
+/* ---------- Topbalk ---------- */
+section[data-testid="stSidebar"], [data-testid="stSidebarCollapsedControl"], [data-testid="collapsedControl"] {{ display: none !important; }}
+.st-key-topbar {{
+    background: rgba(255,255,255,.92); backdrop-filter: blur(8px); border: 1px solid var(--line); border-radius: 999px;
+    padding: .35rem .55rem .35rem .9rem; box-shadow: var(--shadow); margin: -1rem 0 1.8rem; position: sticky; top: .7rem; z-index: 50;
 }}
-section[data-testid="stSidebar"] .st-key-logo_home button p {{ font-size: 0 !important; }}
-section[data-testid="stSidebar"] .st-key-logo_home button:hover {{ opacity: .8; }}
+.st-key-logo_home button, .st-key-logo_home button:hover, .st-key-logo_home button:focus, .st-key-logo_home button:active {{
+    {_LOGO_CSS} background-color: transparent !important; background-size: contain !important;
+    background-repeat: no-repeat !important; background-position: left center !important; mix-blend-mode: multiply;
+    border: none !important; box-shadow: none !important; padding: 0 !important;
+    width: 56px !important; height: 56px !important; min-height: 56px !important;
+}}
+.st-key-logo_home button p {{ font-size: 0 !important; }}
+.st-key-logo_home button:hover {{ opacity: .8; }}
+.st-key-nav_atleten button, .st-key-nav_uit button, .st-key-topbar [data-testid="stPopover"] button {{
+    background: transparent !important; border: none !important; color: var(--muted) !important; min-height: 2.4rem !important;
+}}
+.st-key-nav_atleten button:hover, .st-key-nav_uit button:hover, .st-key-topbar [data-testid="stPopover"] button:hover {{
+    background: var(--surface-2) !important; color: var(--wine) !important;
+}}
+.st-key-nav_uit button p {{ font-weight: 600 !important; font-size: .82rem !important; }}
+.st-key-switcher [data-testid="stPopover"] button {{
+    background: #fff !important; border: 1px solid var(--line-strong) !important; color: var(--ink) !important;
+    padding: .25rem 1rem .25rem .3rem !important; justify-content: flex-start !important;
+}}
+.st-key-switcher button p {{ display: flex !important; align-items: center; gap: .6rem; font-weight: 700 !important;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }}
+.st-key-switcher button p::before {{
+    width: 30px; height: 30px; min-width: 30px; border-radius: 50%; background: var(--sand); color: var(--wine);
+    display: inline-flex; align-items: center; justify-content: center; font-size: .72rem; font-weight: 800;
+}}
+[data-testid="stPopoverBody"] {{ border-radius: 16px !important; border: 1px solid var(--line) !important; box-shadow: var(--shadow-hover) !important; }}
+[data-testid="stPopoverBody"] .stButton > button {{ justify-content: flex-start !important; border: none !important; background: transparent !important;
+    font-weight: 600 !important; padding: .5rem .7rem !important; }}
+[data-testid="stPopoverBody"] .stButton > button:hover {{ background: var(--surface-2) !important; color: var(--wine) !important; }}
+[data-testid="stPopoverBody"] .stButton > button[kind="primary"] {{ justify-content: center !important; background: var(--green) !important; color: #fff !important; }}
+.dm-pop-t {{ font-size: .68rem; font-weight: 700; letter-spacing: .16em; text-transform: uppercase; color: var(--muted); margin: .1rem 0 .3rem .4rem; }}
+.dm-pop-sep {{ height: 1px; background: var(--line); margin: .3rem 0 .5rem; }}
+
+/* ---------- Atletenlijst ---------- */
+.dm-roster-head {{ display: grid; grid-template-columns: 2.3fr 1fr 1.9fr 2.6fr .95fr; gap: 1rem; padding: .8rem 1.1rem .4rem;
+    font-size: .66rem; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }}
+[class*="st-key-rij_"] {{ background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: .55rem 1.1rem;
+    margin-bottom: .1rem; box-shadow: var(--shadow); transition: box-shadow .15s ease, border-color .15s ease; }}
+[class*="st-key-rij_"]:hover {{ box-shadow: var(--shadow-hover); border-color: var(--line-strong); }}
+[class*="st-key-rij_"] p {{ margin: 0 !important; }}
+.dm-who {{ display: flex; align-items: center; gap: .75rem; color: var(--ink); }}
+.dm-who .dm-avatar {{ width: 36px; height: 36px; font-size: .78rem; flex: none; }}
+.dm-cell {{ font-size: .9rem; color: var(--text); }}
+.dm-muted {{ color: var(--faint); }}
+.dm-chips {{ display: flex; gap: .35rem; flex-wrap: wrap; }}
+.dm-chip {{ font-size: .72rem; font-weight: 700; border-radius: 999px; padding: .2rem .6rem; background: var(--surface-2); color: var(--faint); white-space: nowrap; }}
+.dm-chip.ok {{ background: var(--green-soft); color: var(--ok); }}
 
 /* ---------- Knoppen ---------- */
 .stButton > button, .stDownloadButton > button, [data-testid="stFormSubmitButton"] > button {{
@@ -363,20 +401,24 @@ div[data-testid="stAlert"] {{ border-radius: 14px; border: 1px solid var(--line)
 .dm-goal-chip::before {{ content: ''; width: 7px; height: 7px; border-radius: 50%; background: var(--green); }}
 
 /* ---------- Tool-tegels ---------- */
-.dm-tool-card {{
+[class*="st-key-tile_"] {{
     background: var(--surface); border: 1px solid var(--line); border-radius: 22px;
-    padding: 1.6rem 1.5rem 1.3rem 1.5rem; box-shadow: var(--shadow); min-height: 214px;
-    display: flex; flex-direction: column; transition: box-shadow .2s ease, transform .2s ease;
+    padding: 1.45rem 1.45rem 1.3rem; box-shadow: var(--shadow); height: 258px; overflow: hidden;
+    display: flex; flex-direction: column; gap: 0 !important; transition: box-shadow .2s ease, transform .2s ease;
 }}
-.dm-tool-card:hover {{ box-shadow: var(--shadow-hover); transform: translateY(-2px); }}
+[class*="st-key-tile_"]:hover {{ box-shadow: var(--shadow-hover); transform: translateY(-2px); }}
+[class*="st-key-tile_"] > div:last-child {{ margin-top: auto; }}
+[class*="st-key-tile_"] .stButton > button {{ width: 100%; }}
 .dm-tool-head {{ display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.1rem; }}
 .dm-tool-icon {{
     width: 46px; height: 46px; border-radius: 14px; background: var(--surface-2); color: var(--wine);
     display: flex; align-items: center; justify-content: center;
 }}
 .dm-tool-nr {{ font-size: .75rem; font-weight: 700; color: var(--faint); letter-spacing: .1em; font-variant-numeric: tabular-nums; }}
-.dm-tool-title {{ color: var(--ink); font-size: 1.15rem; font-weight: 700; letter-spacing: -0.02em; margin-bottom: .4rem; }}
-.dm-tool-desc {{ color: var(--muted); font-size: .9rem; line-height: 1.6; flex-grow: 1; }}
+.dm-tool-title {{ color: var(--ink); font-size: 1.15rem; font-weight: 700; letter-spacing: -0.02em; margin-bottom: .35rem;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }}
+.dm-tool-desc {{ color: var(--muted); font-size: .9rem; line-height: 1.55; height: 2.79rem; overflow: hidden;
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }}
 .dm-tool-link {{
     display: flex; align-items: center; justify-content: center; text-decoration: none !important;
     background: var(--surface); color: var(--text) !important; border: 1px solid var(--line-strong);
@@ -524,24 +566,18 @@ _suite_component = _import_lokaal('suite').component
 _verslag_component = _import_lokaal('suite').verslag
 
 TOOLS = [
-    {'key': PAGE_ATLETEN, 'icon': 'atleten', 'titel': 'Atleten & dashboard',
-     'desc': 'Eén dashboard per atleet: intake, belastbaarheid, jaarplanning en testen samen — '
-             'en elke tool opent van daaruit meteen voor die atleet.'},
+    {'key': PAGE_ATLETEN, 'icon': 'atleten', 'titel': 'Atleten',
+     'desc': 'Eén dashboard per atleet: intake, belastbaarheid, planning en testen samen.'},
     {'key': PAGE_INTAKE, 'icon': 'intake', 'titel': 'Intake',
-     'desc': 'Upload de opname van het intakegesprek: de tool schrijft het uit, vult het volledige '
-             'intakeverslag in en maakt er een verslag in de huisstijl van — jij leest na en corrigeert.'},
-    {'key': PAGE_BELASTBAARHEID, 'icon': 'analyse', 'titel': 'Belastbaarheidsanalyse atleet',
-     'desc': 'Volledige analyse van trainingslast en A:C ratio uit een Strava-export: '
-             'kernbevindingen, blinde vlekken, trend en trainingsadvies.'},
+     'desc': 'Opname van het gesprek wordt uitgeschreven en een verslag in de huisstijl.'},
+    {'key': PAGE_BELASTBAARHEID, 'icon': 'analyse', 'titel': 'Belastbaarheid',
+     'desc': 'Trainingslast en A:C ratio uit Strava, met trend, blinde vlekken en advies.'},
     {'key': PAGE_JAARPLANNING, 'icon': 'planning', 'titel': 'Jaarplanning',
-     'desc': 'Macro- en mesocyclus-voorstel per A-doel volgens Friel en Olbrecht, '
-             'terugwerkend vanaf de wedstrijddatum en afgestemd op de huidige belastbaarheid.'},
+     'desc': 'Opbouw per A-doel terugwerkend vanaf de wedstrijd, afgestemd op de belasting.'},
     {'key': PAGE_TESTEN, 'icon': 'test', 'titel': 'Prestatietesten',
-     'desc': 'Lactaattest (LT1/LT2 en 7 zones), Critical Power, Critical Swim Speed en de '
-             '3/5 km looptest — met printbaar verslag per atleet.'},
+     'desc': 'Lactaat, Critical Power, CSS en looptest, met zones en printbaar verslag.'},
     {'key': PAGE_VOEDING, 'icon': 'voeding', 'titel': 'Voedingsplan',
-     'desc': 'Wedstrijdvoeding per minuut uitgeschreven: gels, vocht en zout, afgestemd op '
-             'afstand, niveau en weer (ACSM-richtwaarden).'},
+     'desc': 'Wedstrijdvoeding per minuut: koolhydraten, vocht en zout op maat.'},
 ]
 
 
@@ -567,31 +603,170 @@ def current_page():
     return st.session_state.get('page', PAGE_HOME)
 
 
-def render_home():
-    page_header('Kies een tool', 'Elke tool werkt op zichzelf — je hoeft ze niet in volgorde te gebruiken.',
-                eyebrow='Overzicht')
-    st.markdown('<div style="height:1rem"></div>', unsafe_allow_html=True)
+def render_tools_grid():
 
     for row_start in range(0, len(TOOLS), 3):
         cols = st.columns(3, gap='medium')
         for i, (col, tool) in enumerate(zip(cols, TOOLS[row_start:row_start + 3])):
             nr = row_start + i + 1
             with col:
-                st.markdown(
-                    f'<div class="dm-tool-card"><div class="dm-tool-head">'
-                    f'<div class="dm-tool-icon">{ICONS.get(tool["icon"], "")}</div>'
-                    f'<div class="dm-tool-nr">{nr:02d}</div></div>'
-                    f'<div class="dm-tool-title">{tool["titel"]}</div>'
-                    f'<div class="dm-tool-desc">{tool["desc"]}</div></div>',
-                    unsafe_allow_html=True)
-                if tool.get('url'):
-                    # Externe tool: echte link in een nieuw tabblad, zodat de Streamlit-sessie
-                    # (login en gemaakte analyses) hier gewoon blijft staan.
-                    st.markdown(f'<a href="{tool["url"]}" target="_blank" rel="noopener" '
-                                f'class="dm-tool-link">Openen ↗</a>', unsafe_allow_html=True)
-                elif st.button('Openen', key=f"open_{tool['key']}", use_container_width=True):
-                    goto(tool['key'])
-        st.markdown('<div style="height:1.2rem"></div>', unsafe_allow_html=True)
+                # Eén container per tegel (vaste hoogte via CSS .st-key-tile_*), zodat elke tegel exact
+                # even groot is en de knop onderaan in de tegel zelf staat.
+                with st.container(key=f"tile_{tool['key']}"):
+                    st.markdown(
+                        f'<div class="dm-tool-head"><div class="dm-tool-icon">{ICONS.get(tool["icon"], "")}</div>'
+                        f'<div class="dm-tool-nr">{nr:02d}</div></div>'
+                        f'<div class="dm-tool-title">{tool["titel"]}</div>'
+                        f'<div class="dm-tool-desc">{tool["desc"]}</div>', unsafe_allow_html=True)
+                    if st.button('Openen', key=f"open_{tool['key']}", use_container_width=True):
+                        goto(tool['key'])
+        st.markdown('<div style="height:.35rem"></div>', unsafe_allow_html=True)
+
+
+# ---------------------------------------------------------------------------
+# Navigatie zonder zijbalk: vaste topbalk (logo · Atleten · Losse tools · atleet-wisselaar)
+# en de atletenlijst als startpagina. De coach werkt per atleet; de losse tools blijven
+# altijd één klik weg via "Losse tools".
+# ---------------------------------------------------------------------------
+def _initialen(naam):
+    return ''.join(w[0] for w in str(naam or '?').split()[:2]).upper() or '?'
+
+
+@st.cache_data(ttl=30, show_spinner=False)
+def _roster_status():
+    return store.status_overzicht()
+
+
+def render_topbar(page):
+    atleet = st.session_state.get('atleet')
+    with st.container(key='topbar'):
+        c_logo, c_nav, c_tools, c_gap, c_sw, c_out = st.columns(
+            [1.25, 1.0, 1.35, 1.4, 2.5, 1.0], vertical_alignment='center')
+        with c_logo:
+            if st.button('De Musculatuur', key='logo_home', help='Naar je atleten'):
+                goto(PAGE_HOME)
+        with c_nav:
+            if st.button('Atleten', key='nav_atleten', use_container_width=True):
+                goto(PAGE_HOME)
+        with c_tools:
+            with st.popover('Losse tools', use_container_width=True):
+                st.markdown('<div class="dm-pop-t">Losse tools</div>', unsafe_allow_html=True)
+                for tool in TOOLS:
+                    if tool['key'] == PAGE_ATLETEN:
+                        continue
+                    if st.button(tool['titel'], key=f"nav_tool_{tool['key']}", use_container_width=True):
+                        goto(tool['key'])
+        with c_sw:
+            label = atleet['naam'] if atleet else 'Kies een atleet'
+            with st.container(key='switcher'):
+                with st.popover(label, use_container_width=True):
+                    _render_wisselaar(atleet)
+        with c_out:
+            if st.button('Uitloggen', key='nav_uit', use_container_width=True):
+                st.session_state['authed'] = False
+                st.rerun()
+    # actieve navigatie + initialen in de wisselaar (CSS kan geen data lezen, dus even injecteren)
+    actief = 'nav_atleten' if page in (PAGE_HOME, PAGE_ATLETEN) else None
+    st.markdown(
+        '<style>'
+        + (f'.st-key-{actief} button {{ background: var(--surface-2) !important; color: var(--wine) !important; }}'
+           if actief else '')
+        + f'.st-key-switcher button p::before {{ content: "{_initialen(atleet["naam"]) if atleet else "+"}"; }}'
+        + '</style>', unsafe_allow_html=True)
+
+
+def _render_wisselaar(atleet):
+    if not store.beschikbaar():
+        st.caption('Opslag niet geconfigureerd — atleten kunnen niet bewaard worden.')
+        return
+    try:
+        alle = _atleten()
+    except Exception as e:
+        st.caption(store.leesbare_fout(e))
+        return
+    zoek = st.text_input('Zoek atleet', placeholder='Zoek atleet…', key='sw_zoek', label_visibility='collapsed')
+    lijst = alle
+    if zoek.strip():
+        z = zoek.strip().lower()
+        lijst = [a for a in alle if z in ' '.join(str(a.get(k) or '') for k in ('naam', 'sport', 'doelen')).lower()]
+    if not lijst:
+        st.caption('Geen atleet gevonden.')
+    for a in lijst[:8]:
+        huidig = bool(atleet and atleet['id'] == a['id'])
+        extra = ' · '.join(x for x in [a.get('sport')] if x)
+        if st.button(f"{'● ' if huidig else ''}{a['naam']}" + (f"  —  {extra}" if extra else ''),
+                     key=f"sw_{a['id']}", use_container_width=True):
+            _kies_atleet(a)
+            goto(PAGE_DASHBOARD)
+    if len(lijst) > 8:
+        st.caption(f'+ {len(lijst) - 8} meer — verfijn je zoekopdracht.')
+    st.markdown('<div class="dm-pop-sep"></div>', unsafe_allow_html=True)
+    if st.button('＋ Nieuwe atleet', key='sw_nieuw', type='primary', use_container_width=True):
+        st.session_state['nieuwe_atleet_open'] = True
+        goto(PAGE_HOME)
+
+
+def render_roster():
+    """Startpagina: alle atleten met hun volgend A-doel en hoe ver hun traject staat."""
+    if not store.beschikbaar():
+        page_header('De Musculatuur', 'Opslag is nog niet geconfigureerd: kies hieronder een tool. Voeg '
+                    '`SUPABASE_URL` en `SUPABASE_KEY` toe aan de secrets om atleten te bewaren.', eyebrow='Overzicht')
+        render_tools_grid()
+        return
+    try:
+        alle = _atleten()
+        status = _roster_status()
+    except Exception as e:
+        st.error(store.leesbare_fout(e))
+        return
+
+    k1, k2 = st.columns([2, 1.2], vertical_alignment='bottom')
+    with k1:
+        page_header('Jouw atleten', f'{len(alle)} atleten — kies er een om zijn dashboard en tools te openen.',
+                    eyebrow='Atleten')
+    with k2:
+        zoek = st.text_input('Zoeken', placeholder='Zoek op naam, sport of doel…', key='roster_zoek',
+                             label_visibility='collapsed')
+
+    _render_nieuwe_atleet(open_standaard=st.session_state.pop('nieuwe_atleet_open', False) or not alle)
+    if not alle:
+        st.caption('Nog geen atleten. Maak er hierboven een aan.')
+        return
+    if zoek.strip():
+        z = zoek.strip().lower()
+        alle = [a for a in alle if z in ' '.join(str(a.get(k) or '') for k in ('naam', 'sport', 'doelen')).lower()]
+
+    vandaag = pd.Timestamp.now().normalize()
+    st.markdown('<div class="dm-roster-head"><div>Atleet</div><div>Sport</div><div>Volgend A-doel</div>'
+                '<div>Traject</div><div></div></div>', unsafe_allow_html=True)
+    for a in alle:
+        info = status.get(a['id'], {})
+        soorten = set(info.get('soorten', []))
+        goals = []
+        for g in info.get('goals') or []:
+            d = pd.to_datetime((g or {}).get('date'), errors='coerce')
+            if pd.notna(d) and d >= vandaag:
+                goals.append({'name': g.get('name') or 'A-doel', 'date': d})
+        goals.sort(key=lambda g: g['date'])
+        if goals:
+            g = goals[0]
+            wk = (pd.Timestamp(g['date']) - vandaag).days // 7
+            doel = f'{intake._e(g["name"])} · <b>{wk} wk</b>'
+        else:
+            doel = '<span class="dm-muted">Nog geen A-doel</span>'
+        chip = lambda ok, t: f'<span class="dm-chip{" ok" if ok else ""}">{"✓ " if ok else ""}{t}</span>'
+        chips = (chip('intake' in soorten, 'Intake') + chip('belastbaarheid' in soorten, 'Belasting')
+                 + chip(bool(info.get('goals')), 'Plan') + chip('traject' in soorten, 'Verslag'))
+        with st.container(key=f"rij_{a['id']}"):
+            c1, c2, c3, c4, c5 = st.columns([2.3, 1, 1.9, 2.6, 0.95], vertical_alignment='center')
+            c1.markdown(f'<div class="dm-who"><div class="dm-avatar">{intake._e(_initialen(a["naam"]))}</div>'
+                        f'<b>{intake._e(a["naam"])}</b></div>', unsafe_allow_html=True)
+            c2.markdown(f'<span class="dm-cell">{intake._e(a.get("sport") or "—")}</span>', unsafe_allow_html=True)
+            c3.markdown(f'<span class="dm-cell">{doel}</span>', unsafe_allow_html=True)
+            c4.markdown(f'<div class="dm-chips">{chips}</div>', unsafe_allow_html=True)
+            if c5.button('Openen', key=f"rij_open_{a['id']}", use_container_width=True):
+                _kies_atleet(a)
+                goto(PAGE_DASHBOARD)
 
 
 def belastbaarheid_status(current):
@@ -2391,50 +2566,41 @@ def _render_testresultaten(atleet):
             goto(PAGE_VOEDING if r['soort'] == 'voeding' else PAGE_TESTEN)
 
 
-def render_analyse_sidebar():
-    """Upload-flow: hoort enkel bij de Belastbaarheidsanalyse-tool."""
-    st.markdown('<div class="dm-sidebar-section">Nieuwe analyse</div>', unsafe_allow_html=True)
-
-    st.markdown('<div class="dm-step">① Naam atleet</div>', unsafe_allow_html=True)
-    # Staat er een atleet geselecteerd, dan is dat de naam — zo hangt de analyse meteen aan
-    # het juiste profiel. Aanpassen kan nog steeds.
-    geselecteerd = (st.session_state.get('atleet') or {}).get('naam', '')
-    athlete_name = st.text_input('Naam atleet', value=geselecteerd, placeholder='bv. Jan Peeters',
-                                 label_visibility='collapsed')
-
-    st.markdown('<div class="dm-step">② Upload activities.csv</div>', unsafe_allow_html=True)
-    uploaded_file = st.file_uploader('activities.csv', type=['csv'], label_visibility='collapsed')
-    st.caption('Pak de Strava-export (.zip) uit en upload enkel het bestand **activities.csv** '
-               'daaruit — niet de volledige zip. Dat is het enige bestand dat deze tool nodig heeft.')
-
-    st.markdown('<div class="dm-step">③ Referentiedatum</div>', unsafe_allow_html=True)
-    today_override = st.date_input('Referentiedatum', value=pd.Timestamp.now().normalize().date(),
-                                    label_visibility='collapsed')
-
-    st.markdown('<div style="height:0.6rem"></div>', unsafe_allow_html=True)
-    if st.button('Analyseer', type='primary', disabled=not (athlete_name and uploaded_file), use_container_width=True):
-        with st.spinner('Bezig met analyseren...'):
-            analyze_and_store(uploaded_file, athlete_name, pd.Timestamp(today_override))
-        st.success(f'Analyse van {athlete_name} klaar.')
-
-    athletes = list(st.session_state.get('athletes', {}).keys())
-    if athletes:
-        st.markdown('<hr class="dm-sidebar-divider" />', unsafe_allow_html=True)
-        st.markdown('<div class="dm-sidebar-section">Geanalyseerde atleten</div>', unsafe_allow_html=True)
-        active = st.radio('Bekijk:', athletes, index=athletes.index(st.session_state.get('active_athlete', athletes[0])),
-                           label_visibility='collapsed')
-        st.session_state['active_athlete'] = active
+def render_analyse_form(open_standaard):
+    """Nieuwe analyse: staat nu op de pagina zelf (vroeger in de zijbalk)."""
+    with st.expander('Nieuwe analyse — activities.csv uploaden', expanded=open_standaard):
+        geselecteerd = (st.session_state.get('atleet') or {}).get('naam', '')
+        c1, c2 = st.columns([2, 1])
+        athlete_name = c1.text_input('Naam atleet', value=geselecteerd, placeholder='bv. Jan Peeters')
+        today_override = c2.date_input('Referentiedatum', value=pd.Timestamp.now().normalize().date())
+        uploaded_file = st.file_uploader('activities.csv uit de Strava-export', type=['csv'])
+        st.caption('Pak de Strava-export (.zip) uit en upload enkel het bestand **activities.csv** daaruit.')
+        if st.button('Analyseer', type='primary', disabled=not (athlete_name and uploaded_file)):
+            with st.spinner('Bezig met analyseren...'):
+                analyze_and_store(uploaded_file, athlete_name, pd.Timestamp(today_override))
+            st.rerun()
 
 
 def render_belastbaarheid_page():
+    page_header('Belastbaarheid', 'Trainingslast en A:C ratio uit een Strava-export.', eyebrow='Analyse')
     render_traject('belastbaarheid')
+    athletes = list(st.session_state.get('athletes', {}).keys())
+    actief = st.session_state.get('atleet')
+    # De actieve atleet heeft voorrang; anders de laatst geanalyseerde.
+    if actief and actief['naam'] in athletes:
+        st.session_state['active_athlete'] = actief['naam']
     active = st.session_state.get('active_athlete')
+    render_analyse_form(open_standaard=not active)
+    if len(athletes) > 1 and not actief:
+        active = st.selectbox('Geanalyseerde atleet', athletes,
+                              index=athletes.index(active) if active in athletes else 0)
+        st.session_state['active_athlete'] = active
     if not active:
         st.markdown(f"""
         <div class="dm-empty-state">
           <div class="dm-empty-icon">{ICONS["upload"]}</div>
           <div class="dm-empty-title">Nog geen analyse</div>
-          <div class="dm-empty-desc">Vul links de naam van de atleet in en upload het <strong>activities.csv</strong>-bestand
+          <div class="dm-empty-desc">Vul hierboven de naam van de atleet in en upload het <strong>activities.csv</strong>-bestand
           uit de Strava-export. Klik daarna op <strong>Analyseer</strong> om het dashboard te zien.</div>
         </div>
         """, unsafe_allow_html=True)
@@ -2448,35 +2614,10 @@ def main():
         return
 
     page = current_page()
+    render_topbar(page)
 
-    if page == PAGE_HOME:
-        render_hero('AI Performance Assistent',
-                    'Intake, belastbaarheid, jaarplanning en prestatietesten — de tools van De Musculatuur op één plek.')
-
-    with st.sidebar:
-        # Op de startpagina hoeft het logo nergens heen te leiden; elders is het de weg terug.
-        render_logo(clickable=page != PAGE_HOME)
-        if page != PAGE_HOME:
-            if st.button('← Alle tools', key='terug_home', use_container_width=True):
-                goto(PAGE_HOME)
-
-        # De actieve atleet geldt voor álle tools: analyses, A-doelen en documenten worden
-        # automatisch aan dit profiel gekoppeld.
-        st.markdown('<hr class="dm-sidebar-divider" />', unsafe_allow_html=True)
-        render_atleet_selector()
-
-        # Enkel de Belastbaarheidsanalyse heeft eigen sidebar-bediening.
-        if page == PAGE_BELASTBAARHEID:
-            st.markdown('<hr class="dm-sidebar-divider" />', unsafe_allow_html=True)
-            render_analyse_sidebar()
-
-        st.markdown('<hr class="dm-sidebar-divider" />', unsafe_allow_html=True)
-        if st.button('Uitloggen', use_container_width=True):
-            st.session_state['authed'] = False
-            st.rerun()
-
-    if page == PAGE_ATLETEN:
-        render_atleten_page()
+    if page in (PAGE_HOME, PAGE_ATLETEN):
+        render_roster()
     elif page == PAGE_TESTEN:
         render_testen_page()
     elif page == PAGE_VOEDING:
@@ -2490,7 +2631,7 @@ def main():
     elif page == PAGE_JAARPLANNING:
         render_jaarplanning_page()
     else:
-        render_home()
+        render_roster()
 
 
 if __name__ == '__main__':

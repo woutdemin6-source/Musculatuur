@@ -240,3 +240,20 @@ def laatste_record(atleet_id: str, soort: str):
 
 def verwijder_record(record_id: str):
     _client().table('records').delete().eq('id', record_id).execute()
+
+
+def status_overzicht() -> dict:
+    """Per atleet: welke soorten documenten er zijn en de A-doelen — voor de atletenlijst.
+    Twee lichte queries i.p.v. één per atleet (de analyses zelf worden niet opgehaald)."""
+    uit = {}
+    res = _client().table('records').select('atleet_id, soort, data->>type').execute()
+    for r in res.data or []:
+        soort = 'traject' if r.get('type') == 'traject' else r['soort']
+        uit.setdefault(r['atleet_id'], {'soorten': [], 'goals': []})
+        if soort not in uit[r['atleet_id']]['soorten']:
+            uit[r['atleet_id']]['soorten'].append(soort)
+    jp = _client().table('records').select('atleet_id, data').eq('soort', 'jaarplanning').execute()
+    for r in jp.data or []:
+        uit.setdefault(r['atleet_id'], {'soorten': [], 'goals': []})
+        uit[r['atleet_id']]['goals'] = (r.get('data') or {}).get('goals') or []
+    return uit
