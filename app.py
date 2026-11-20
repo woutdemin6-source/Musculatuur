@@ -1284,7 +1284,7 @@ def render_atleet_selector():
     try:
         rijen = _atleten()
     except Exception as e:
-        st.caption(f'Opslag onbereikbaar: {e}')
+        st.caption(store.leesbare_fout(e))
         return
     namen = [GEEN_ATLEET] + [a['naam'] for a in rijen]
     # Een keuze die elders gemaakt is (Atleten-pagina, nieuw profiel) hier in de widget zetten,
@@ -1347,7 +1347,9 @@ def render_intake_context(v, titel='Uit de intake', compact=False):
     if not v:
         return False
     rijen = [
-        ('Doelen', _tekst(v['doelen']['lange_termijn']) or _tekst(v['doelen']['korte_termijn'])),
+        ('Hoofddoel', intake._hoofddoel(v)),
+        ('Waarom', _tekst(v['doelen'].get('motivatie'))),
+        ('Korte termijn', _tekst(v['doelen']['korte_termijn'])),
         ('Wedstrijden', _tekst(v['doelen']['wedstrijden'])),
         ('Beschikbaarheid', _tekst(v['ervaring']['beschikbaarheid'])),
         ('Blessures & aandachtspunten', _tekst(v['ervaring']['blessures'])),
@@ -1451,7 +1453,7 @@ def render_atleten_page():
     try:
         alle = _atleten()
     except Exception as e:
-        st.error(f'Opslag onbereikbaar: {e}')
+        st.error(store.leesbare_fout(e))
         return
 
     _render_nieuwe_atleet(open_standaard=not alle)
@@ -1806,7 +1808,7 @@ def _bewaar_intake(v, html):
     # Het profiel krijgt wat de intake opleverde; lege velden overschrijven niets.
     profiel = {'naam': naam}
     sport = _sport_uit_tekst(v['algemeen']['sport'])
-    doel = v['doelen']['lange_termijn'] or v['doelen']['korte_termijn'] or v['doelen']['wedstrijden']
+    doel = intake._hoofddoel(v) or v['doelen']['lange_termijn'] or v['doelen']['wedstrijden']
     geb = _datum_uit_tekst(v['algemeen']['geboortejaar'])
     samenvatting = '\n\n'.join(x for x in [v['samenvatting'], v['ervaring']['blessures']] if x.strip())
     for k, w in (('sport', sport), ('doelen', intake._kort(doel, 90)), ('contact', v['algemeen']['contact']),
@@ -2039,7 +2041,7 @@ def render_testen_page(voeding=False):
                 titel = _suite_bewaar(atleet, waarde)
                 st.toast(f'{titel} bewaard bij {atleet["naam"]}.')
             except Exception as e:
-                st.error(f'Bewaren lukte niet: {e}')
+                st.error(f'Bewaren lukte niet. {store.leesbare_fout(e)}')
 
 
 def _render_testresultaten(atleet):
@@ -2048,7 +2050,7 @@ def _render_testresultaten(atleet):
         recs = [r for r in store.lijst_records(atleet['id'], met_data=True)
                 if r['soort'] in ('prestatietest', 'voeding')]
     except Exception as e:
-        st.caption(f'Testen konden niet geladen worden: {e}')
+        st.caption(store.leesbare_fout(e))
         return
     if not recs:
         st.caption('Nog geen testen. Open "Prestatietest" bovenaan, vul de test in en klik op '

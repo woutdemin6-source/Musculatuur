@@ -82,6 +82,26 @@ def _probleem(url, key):
     return None
 
 
+def leesbare_fout(e) -> str:
+    """Vertaalt technische verbindingsfouten naar iets waar een coach mee verder kan."""
+    t = str(e)
+    if any(x in t for x in ('Name or service not known', 'nodename nor servname', 'getaddrinfo',
+                             'No address associated', 'Temporary failure in name resolution')):
+        return ('De database is niet bereikbaar: het adres van het Supabase-project bestaat momenteel niet. '
+                'Meestal is het gratis project gepauzeerd na een tijd zonder gebruik — open supabase.com, '
+                'kies het project en klik op "Restore project". Klopt dat niet, controleer dan SUPABASE_URL '
+                'in de secrets van de app.')
+    if any(f"'{c}'" in t or f'status {c}' in t for c in ('520', '521', '522', '523', '502', '503', '504')) \
+            or 'Web server is down' in t:
+        return ('De database start nog op of is tijdelijk onbereikbaar (Supabase herstelt het project na een '
+                'pauze). Wacht een paar minuten en ververs de pagina.')
+    if any(x in t for x in ('timed out', 'Timeout', 'Connection refused', 'Connection reset')):
+        return 'De database reageert niet (time-out). Probeer het over een minuut opnieuw.'
+    if 'Invalid API key' in t or '401' in t:
+        return 'De database weigert de sleutel: controleer SUPABASE_KEY in de secrets van de app.'
+    return f'De database is niet bereikbaar ({t[:200]}).'
+
+
 def beschikbaar() -> bool:
     url, key = _secrets()
     return bool(url and key)

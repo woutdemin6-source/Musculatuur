@@ -108,6 +108,8 @@ SECTIES = [
         ('op_naam_van', 'Facturatie op naam van (atleet / ouder / bedrijf)', 'input'),
     ]),
     ('doelen', 'Doelen', [
+        ('hoofddoel', 'Hoofddoel — één krachtige zin (staat groot op het verslag)', 'input'),
+        ('motivatie', 'Waarom — de drijfveer van de atleet', 'area'),
         ('korte_termijn', 'Korte-termijndoelen', 'area'),
         ('lange_termijn', 'Lange-termijndoelen', 'area'),
         ('wedstrijden', 'Belangrijke wedstrijden / events', 'area'),
@@ -316,7 +318,8 @@ def _schema_voorbeeld():
                           'contact': '04xx xx xx xx, naam@mail.be'})
     v['coach'] = {'naam': '', 'email': '', 'gsm': ''}
     v['facturatie'] = {k: '' for k in v['facturatie']}
-    v['doelen'] = {'korte_termijn': '…', 'lange_termijn': '…', 'wedstrijden': '…'}
+    v['doelen'] = {'hoofddoel': '…', 'motivatie': '…', 'korte_termijn': '…\n…', 'lange_termijn': '…',
+                   'wedstrijden': 'Naam wedstrijd – dd/mm/jjjj\n…'}
     v['ervaring'] = {k: '…' for k in v['ervaring']}
     v['afspraken'] = {k: '' for k in v['afspraken']}
     v.update({'samenvatting': '…', 'pakket': 'multisport', 'advies': '…',
@@ -336,6 +339,11 @@ Regels:
 - "algemeen.geboortejaar": geboortejaar of volledige geboortedatum zoals genoemd; een leeftijd mag je omrekenen naar een geboortejaar (vermeld dan "ca.").
 - "coach": laat leeg; die gegevens vult de app zelf in.
 - "facturatie": enkel wat letterlijk werd doorgegeven.
+- "doelen" is het hart van het verslag en moet de atleet motiveren. Kort, concreet, in de woorden van de atleet:
+  - "hoofddoel": het ene grote doel in één krachtige zin van max. 10 woorden, concreet en liefst meetbaar (bv. "Ironman Nice finishen onder 11 uur"). Geen inleiding, geen punt op het einde.
+  - "motivatie": 1 à 2 korte zinnen: waarom dit doel voor de atleet belangrijk is, zo dicht mogelijk bij wat hij/zij zelf zei. Leeg als het niet besproken is.
+  - "korte_termijn" en "lange_termijn": max. 3 doelen elk, één per regel, elk max. 8 woorden, zonder opsommingstekens.
+  - "wedstrijden": één wedstrijd per regel als "Naam – dd/mm/jjjj" (datum enkel als die genoemd werd).
 - "ervaring": trainingservaring (achtergrond, huidige trainingsomvang, niveau, cijfers zoals FTP of tijden), welke testen ingepland worden, blessures en medische aandachtspunten, beschikbaarheid (uren per week, werk, gezin, verlof), materiaal en data (fiets, vermogensmeter, horloge, zwembad, Strava/TrainingPeaks).
 - "pakket": een van "lopen_fietsen" (€75), "multisport" (€100), "system_complete" (€140) als er een pakket gekozen of duidelijk besproken werd, anders "".
 - "afspraken": enkel invullen als er in het gesprek concrete afspraken gemaakt zijn die afwijken van de standaard (bv. wekelijks telefonisch overleg op maandag); anders leeg laten.
@@ -498,6 +506,46 @@ h1,h2,h3,h4{letter-spacing:-.02em}
 .rdisc{background:var(--accent);font-weight:700}
 .rsec h3::before{background:var(--accent);border-radius:999px}
 .rcover .cvrule{background:var(--green)}
+
+/* ---------- Doelen: het centrum van het verslag ---------- */
+.goals{margin-bottom:38px}
+.goalhero{display:flex;align-items:stretch;gap:18px;background:linear-gradient(135deg,#FBF4EF 0%,#F3E4D8 100%);
+  border-radius:20px;padding:30px 32px;position:relative;overflow:hidden}
+.goalhero::before{content:"";position:absolute;left:0;top:0;bottom:0;width:6px;background:var(--accent)}
+.gh-main{flex:1;min-width:0}
+.gh-eyebrow{font-size:11px;font-weight:700;letter-spacing:.2em;text-transform:uppercase;color:var(--green-dark);margin-bottom:10px}
+.gh-goal{font-size:34px;line-height:1.1;font-weight:900;letter-spacing:-.03em;color:var(--accent)}
+.gh-why{margin-top:16px;font-size:15px;line-height:1.55;color:var(--text);max-width:520px}
+.gh-why span{display:block;font-size:10.5px;font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin-bottom:4px}
+.gh-count{flex:none;width:132px;background:#fff;border-radius:16px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:14px}
+.gh-count-n{font-size:46px;font-weight:900;line-height:1;color:var(--accent);letter-spacing:-.04em;font-variant-numeric:tabular-nums}
+.gh-count-l{font-size:11.5px;line-height:1.35;color:var(--muted);margin-top:6px}
+.gcols{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:14px}
+.gcol{border:1px solid var(--line);border-radius:16px;padding:18px 20px;background:#fff}
+.gcol-t{font-size:11px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--accent);margin-bottom:10px}
+.gcol ul{list-style:none;margin:0;padding:0}
+.gcol li{position:relative;padding:6px 0 6px 22px;font-size:15px;font-weight:600;line-height:1.4;color:var(--ink)}
+.gcol li::before{content:"";position:absolute;left:0;top:11px;width:10px;height:10px;border-radius:50%;border:2.5px solid var(--green)}
+.gcol li.leeg{color:var(--faint);font-weight:500}
+.gcol li.leeg::before{border-color:var(--line-strong)}
+.gtl-t{font-size:11px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);margin:22px 0 12px}
+.gtl{display:flex;position:relative;gap:0}
+.gtl::before{content:"";position:absolute;left:8px;right:8px;top:7px;height:2px;background:var(--line-strong)}
+.tl-stop{flex:1;position:relative;padding-right:12px}
+.tl-dot{width:16px;height:16px;border-radius:50%;background:#fff;border:3px solid var(--green);position:relative;z-index:1}
+.tl-stop:last-child .tl-dot{border-color:var(--accent);background:var(--accent)}
+.tl-date{font-size:11.5px;font-weight:700;color:var(--muted);margin-top:8px;font-variant-numeric:tabular-nums}
+.tl-name{font-size:14px;font-weight:700;color:var(--ink);line-height:1.3;margin-top:2px}
+.rcover .cvgoal{margin:-14px auto 36px;max-width:520px;padding-top:22px;border-top:1px solid var(--line)}
+/* Voorblad met hoofddoel: iets compacter, zodat het bij het printen gegarandeerd op één A4 blijft */
+.rcover.metdoel .cvtop{padding-top:12mm}
+.rcover.metdoel .cvlogo{margin-bottom:26px}
+.rcover.metdoel .cvdisc{margin-bottom:34px}
+@media print{.rcover{overflow:hidden}.rcover.metdoel .cvtop{padding-top:8mm}}
+.rcover .cvgoal-l{font-size:11px;font-weight:700;letter-spacing:.22em;text-transform:uppercase;color:var(--green-dark);margin-bottom:8px}
+.rcover .cvgoal-v{font-size:26px;font-weight:900;line-height:1.15;letter-spacing:-.025em;color:var(--accent)}
+@media(max-width:640px){.goalhero{flex-direction:column}.gh-count{width:auto;flex-direction:row;gap:12px}.gcols{grid-template-columns:1fr}.gh-goal{font-size:27px}.gtl{flex-direction:column;gap:12px}.gtl::before{display:none}}
+@media print{.goals,.goalhero,.gcols,.gtl{page-break-inside:avoid;break-inside:avoid}}
 """
 
 VERSLAG_JS = """
@@ -524,6 +572,94 @@ def _kort(s, n=46):
     return s if len(s) <= n else s[:n - 1].rstrip() + '…'
 
 
+def _regels(tekst, n=None):
+    uit = [r.strip(' -•\t') for r in re.split(r'[\n;]+', str(tekst or '')) if r.strip(' -•\t')]
+    return uit[:n] if n else uit
+
+
+_MND = {'jan': 1, 'feb': 2, 'mrt': 3, 'maa': 3, 'apr': 4, 'mei': 5, 'jun': 6, 'jul': 7, 'aug': 8,
+        'sep': 9, 'okt': 10, 'oct': 10, 'nov': 11, 'dec': 12}
+_MAAND_KORT = ['jan', 'feb', 'mrt', 'apr', 'mei', 'jun', 'jul', 'aug', 'sep', 'okt', 'nov', 'dec']
+
+
+def _wedstrijden(tekst):
+    """'Naam – 12/06/2027' (of '12 juni 2027') → [(naam, date|None)] in chronologische volgorde."""
+    uit = []
+    for regel in _regels(tekst, 6):
+        datum, m = None, re.search(r'\b(\d{1,2})[/.\-](\d{1,2})[/.\-](\d{2,4})\b', regel)
+        if m:
+            d_, mo, y = map(int, m.groups())
+            y = y + 2000 if y < 100 else y
+        else:
+            m = re.search(r'\b(\d{1,2})\s+([a-zA-Z]{3,})\.?\s+(\d{4})\b', regel)
+            if m and m.group(2)[:3].lower() in _MND:
+                d_, mo, y = int(m.group(1)), _MND[m.group(2)[:3].lower()], int(m.group(3))
+            else:
+                m = None
+        if m:
+            try:
+                datum = date(y, mo, d_)
+            except ValueError:
+                datum = None
+            regel = regel.replace(m.group(0), '')
+        naam = regel.strip(' -–—:,()') or 'Wedstrijd'
+        uit.append((naam, datum))
+    return sorted(uit, key=lambda x: (x[1] is None, x[1] or date.max))
+
+
+def _hoofddoel(v):
+    d = v['doelen']
+    if str(d.get('hoofddoel') or '').strip():
+        return str(d['hoofddoel']).strip().rstrip('.')
+    for veld in ('lange_termijn', 'korte_termijn'):
+        r = _regels(d.get(veld), 1)
+        if r:
+            return r[0].rstrip('.')
+    w = _wedstrijden(d.get('wedstrijden'))
+    return w[0][0] if w else ''
+
+
+def _doelen_blok(v):
+    d = v['doelen']
+    hoofd = _hoofddoel(v)
+    races = _wedstrijden(d.get('wedstrijden'))
+    vandaag = date.today()
+
+    teller = ''
+    # Aftellen naar de wedstrijd van het hoofddoel; staat die niet in de lijst, dan naar de
+    # laatste geplande wedstrijd (meestal het A-doel waar de andere naartoe leiden).
+    toekomst = [r for r in races if r[1] and r[1] >= vandaag]
+    woorden = {w for w in re.findall(r'\w{4,}', hoofd.lower())}
+    score = lambda r: len(woorden & set(re.findall(r'\w{4,}', r[0].lower())))
+    beste = max(toekomst, key=score, default=None)
+    eerste = beste if beste and score(beste) else (toekomst[-1] if toekomst else None)
+    if eerste:
+        weken = (eerste[1] - vandaag).days // 7
+        teller = (f'<div class="gh-count"><div class="gh-count-n">{weken}</div>'
+                  f'<div class="gh-count-l">weken tot<br>{_e(eerste[0])}</div></div>')
+    waarom = (f'<div class="gh-why"><span>Waarom</span>{_e(d.get("motivatie"))}</div>'
+              if str(d.get('motivatie') or '').strip() else '')
+    hero = (f'<div class="goalhero"><div class="gh-main"><div class="gh-eyebrow">Jouw hoofddoel</div>'
+            f'<div class="gh-goal">{_e(hoofd) if hoofd else "Nog samen vast te leggen"}</div>{waarom}</div>'
+            f'{teller}</div>')
+
+    def kolom(titel, tekst):
+        items = _regels(tekst, 3)
+        li = ''.join(f'<li>{_e(x)}</li>' for x in items) or '<li class="leeg">Nog te bepalen</li>'
+        return f'<div class="gcol"><div class="gcol-t">{titel}</div><ul>{li}</ul></div>'
+    kolommen = f'<div class="gcols">{kolom("Korte termijn", d.get("korte_termijn"))}{kolom("Lange termijn", d.get("lange_termijn"))}</div>'
+
+    tijdlijn = ''
+    if races:
+        stops = ''.join(
+            f'<div class="tl-stop"><div class="tl-dot"></div>'
+            f'<div class="tl-date">{f"{r[1].day} {_MAAND_KORT[r[1].month - 1]} {r[1].year}" if r[1] else "datum volgt"}</div>'
+            f'<div class="tl-name">{_e(r[0])}</div></div>' for r in races)
+        tijdlijn = f'<div class="gtl-t">Wedstrijden op de weg ernaartoe</div><div class="gtl">{stops}</div>'
+
+    return f'<div class="rsec goals"><h3 data-n="1">Jouw doelen</h3>{hero}{kolommen}{tijdlijn}</div>'
+
+
 def verslag_html(v):
     """Zelfstandig HTML-verslag (fonts via Google Fonts, logo ingebed) — te bekijken in de app,
     te openen in een nieuw tabblad en via de browser te bewaren als PDF."""
@@ -533,19 +669,21 @@ def verslag_html(v):
     sport = a['sport'] or 'Coaching'
     naam = a['naam'] or '—'
     contact_coach = '  ·  '.join(x for x in [c['email'], c['gsm']] if x)
-    doel = d['lange_termijn'] or d['korte_termijn'] or d['wedstrijden']
+    hoofddoel = _hoofddoel(v)
+    doel = hoofddoel
 
     logo_img = f'<img class="cvlogo" src="{logo}" alt="De Musculatuur">' if logo else ''
     logo_head = f'<img src="{logo}" alt="De Musculatuur">' if logo else ''
 
     cover = f"""
-<div class="rpage rcover">
+<div class="rpage rcover{' metdoel' if hoofddoel else ''}">
   <div class="cvtop">
     {logo_img}
     <div class="cvrule"></div>
     <div class="cveyebrow">Intake · Verslag</div>
     <h1 class="cvtitle">Intakeverslag</h1>
     <div class="cvdisc">Coachingsoverzicht · {_e(sport)}</div>
+    {f'<div class="cvgoal"><div class="cvgoal-l">Jouw doel</div><div class="cvgoal-v">{_e(hoofddoel)}</div></div>' if hoofddoel else ''}
     <div class="cvwho"><div class="cvname">{_e(naam)}</div><div class="cvdate">{_e(a['datum'])}</div></div>
   </div>
   <div class="cvfoot">
@@ -589,19 +727,8 @@ def verslag_html(v):
   {'<p class="rnote">De nog ontbrekende gegevens mag je me gewoon bezorgen; dan vul ik ze aan.</p>' if ontbreekt else ''}
 </div>"""
 
-    # 4 · Doelen
-    def kaart(lbl, tekst, kleur):
-        leeg = not str(tekst or '').strip()
-        return (f'<div class="t" style="--bar:{kleur}"><div class="tl">{lbl}</div>'
-                f'<div class="tv{" leeg" if leeg else ""}">{_e(tekst) if not leeg else "Nog te bepalen"}</div></div>')
-    s4 = f"""
-<div class="rsec"><h3 data-n="4">Doelen</h3>
-  <div class="cards">
-    {kaart('Korte termijn', d['korte_termijn'], '#22B8CF')}
-    {kaart('Lange termijn', d['lange_termijn'], '#5B1F2C')}
-    {kaart('Wedstrijden & events', d['wedstrijden'], '#F97316')}
-  </div>
-</div>"""
+    # Doelen — het centrum van het verslag: bovenaan, groot en to the point
+    s4 = _doelen_blok(v)
 
     # 5 · Ervaring & aandachtspunten
     erv = [('Trainingservaring', e['trainingservaring']), ('Testing', e['testing']),
@@ -684,9 +811,12 @@ def verslag_html(v):
     <div class="rt"><small>{_e(sport)} · Rapport</small>Intakeverslag</div>
     <div class="rr">{logo_head}<span class="rdisc">{_e(sport)}</span></div>
   </div>
-  {s1}{s2}{s3}{s4}{s5}{s6}{s7}{s8}{s9}{s10}{s11}
+  {s4}{s1}{s2}{s3}{s5}{s6}{s7}{s8}{s9}{s10}{s11}
   {voet}
 </div>"""
+    # Secties doorlopend nummeren in de volgorde waarin ze nu staan
+    teller = iter(range(1, 100))
+    body = re.sub(r'data-n="\d+"', lambda m: f'data-n="{next(teller)}"', body)
 
     return f"""<!doctype html>
 <html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
