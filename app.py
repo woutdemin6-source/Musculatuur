@@ -1060,6 +1060,49 @@ _FASE_KLEUR = {'transitie': '#B4A399', 'basis1': '#D9B48F', 'basis2': '#D9B48F',
                'taper_afbouw': '#4F000B', 'wedstrijdweek': '#4F000B'}
 
 
+# Atletenversie van de planning: grote blokken i.p.v. alle (sub)fasen en cycli.
+_VISIE = [  # (sleutel, naam, kleur, één zin voor de atleet)
+    ('herstel', 'Herstel', '#B4A399', 'Actief herstel na je vorige wedstrijd — even ontladen.'),
+    ('basis', 'Basis', '#D9B48F', 'Aerobe basis en kracht: veel rustig volume en techniek.'),
+    ('opbouw', 'Opbouw', '#63B995', 'Specifieker en intensiever: wedstrijdtempo en drempelwerk.'),
+    ('piek', 'Piek', '#9A4A3A', 'Scherp worden: kort en intens, minder volume.'),
+    ('taper', 'Taper & wedstrijd', '#4F000B', 'Volume omlaag, frisheid omhoog — klaar voor de start.'),
+]
+_VISIE_VAN = {'transitie': 'herstel', 'basis1': 'basis', 'basis2': 'basis', 'basis3': 'basis',
+              'opbouw1': 'opbouw', 'opbouw2': 'opbouw', 'piek': 'piek',
+              'taper_afbouw': 'taper', 'wedstrijdweek': 'taper'}
+_MND_KORT = ['jan', 'feb', 'mrt', 'apr', 'mei', 'jun', 'jul', 'aug', 'sep', 'okt', 'nov', 'dec']
+
+
+def _visie_html(goal, blokken):
+    """Eén A-doel als balk van grote blokken (breedte = aantal weken) met een korte legende."""
+    e = intake._e
+    groepen = []
+    for b in blokken:
+        k = _VISIE_VAN.get(b['fase_key'], 'basis')
+        if groepen and groepen[-1]['k'] == k:
+            groepen[-1]['weken'] += b['weken']
+            groepen[-1]['einde'] = b['einde']
+        else:
+            groepen.append({'k': k, 'weken': b['weken'], 'start': b['start'], 'einde': b['einde']})
+    if not groepen:
+        return ''
+    info = {k: (n, c, z) for k, n, c, z in _VISIE}
+    totaal = sum(gr['weken'] for gr in groepen) or 1
+    balk = ''.join(
+        f'<div class="vz-seg" style="flex:{gr["weken"]};background:{info[gr["k"]][1]}">'
+        f'<b>{gr["weken"]} wk</b><span>{e(info[gr["k"]][0])}</span></div>' for gr in groepen)
+    maand = lambda d: f'{_MND_KORT[d.month - 1]} {str(d.year)[2:]}'
+    legende = ''.join(
+        f'<div class="vz-item"><span class="vz-dot" style="background:{info[gr["k"]][1]}"></span>'
+        f'<div><div class="vz-t">{gr["weken"]} {"week" if gr["weken"] == 1 else "weken"} {e(info[gr["k"]][0]).lower()}'
+        f'<small>{maand(gr["start"])} – {maand(gr["einde"])}</small></div>'
+        f'<div class="vz-z">{e(info[gr["k"]][2])}</div></div></div>' for gr in groepen)
+    datum = pd.Timestamp(goal['date']).strftime('%d/%m/%Y')
+    return (f'<div class="tv-goal">{e(goal["name"])}<small>{datum} · {totaal} weken voorbereiding</small></div>'
+            f'<div class="vz-bar">{balk}</div><div class="vz-legend">{legende}</div>')
+
+
 def traject_html(intake_v, plan, bel=None, summary=None):
     """Eén verslag voor de atleet: de intake, aangevuld met waar hij nu staat (belastbaarheid, als
     die er is) en de jaarplanning — meteen na de doelen, in dezelfde huisstijl."""
@@ -1092,18 +1135,11 @@ def traject_html(intake_v, plan, bel=None, summary=None):
         per_doel = ''
         for g in plan['goals']:
             blokken = [b for b in plan['blocks'] if b['doel'] == g['name']]
-            rijen = ''.join(
-                f'<div class="tv-block" style="--fase:{_FASE_KLEUR.get(b["fase_key"], "#D8BFAF")}">'
-                f'<div class="tv-fase">{e(b["fase"])}<small>{b["start"].strftime("%d/%m")} – '
-                f'{b["einde"].strftime("%d/%m/%Y")} · {b["weken"]} wk</small></div>'
-                f'<div><div class="tv-meta">Volume {e(b["volume"])} · intensiteit {e(b["intensiteit"])}</div>'
-                f'<div class="tv-focus">{e(b["focus"])}</div></div></div>' for b in blokken)
-            per_doel += (f'<div class="tv-goal">{e(g["name"])}<small>{pd.Timestamp(g["date"]).strftime("%d/%m/%Y")}'
-                         f' · {g.get("weken_beschikbaar", "")} weken voorbereiding</small></div>{rijen}')
+            per_doel += _visie_html(g, blokken)
         extra += (f'<div class="rsec pagebreak"><h3 data-n="0">Jouw jaarplanning</h3>'
-                  f'<p>Terugwerkend gepland vanaf je wedstrijd(en): eerst een brede basis, dan specifieker '
-                  f'opbouwen, en een taper van twee weken om fris aan de start te staan. Je coach vertaalt '
-                  f'elke fase naar concrete trainingen.</p>{aandacht}{per_doel}</div>')
+                  f'<p>Zo ziet je voorbereiding eruit, in grote blokken: eerst een brede basis, dan specifieker '
+                  f'opbouwen, en tot slot scherp en fris naar de start. De concrete trainingen per week krijg je '
+                  f'van je coach.</p>{aandacht}{per_doel}</div>')
 
     v = intake_v or intake.leeg_intake()
     return intake.verslag_html(v, extra_html=extra, titel='Jouw traject',

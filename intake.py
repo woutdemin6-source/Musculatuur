@@ -576,6 +576,20 @@ h1,h2,h3,h4{letter-spacing:-.02em}
 .tv-intake b{color:var(--accent)}
 @media(max-width:640px){.tv-stats{grid-template-columns:1fr 1fr}.tv-block{grid-template-columns:1fr}}
 @media print{.tv-block,.tv-stats,.tv-advies{page-break-inside:avoid;break-inside:avoid}}
+
+/* ---------- Jaarplanning in grote blokken (atletenversie) ---------- */
+.vz-bar{display:flex;gap:4px;margin:6px 0 16px;border-radius:14px;overflow:hidden}
+.vz-seg{min-width:72px;padding:12px 10px;white-space:nowrap;color:#fff;display:flex;flex-direction:column;justify-content:center;min-height:62px}
+.vz-seg b{white-space:nowrap;font-size:15px;font-weight:900;letter-spacing:-.01em;line-height:1.1}
+.vz-seg span{font-size:11px;font-weight:600;opacity:.9;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.vz-legend{display:grid;grid-template-columns:1fr 1fr;gap:10px 22px;margin-bottom:18px}
+.vz-item{display:flex;gap:10px;align-items:flex-start}
+.vz-dot{flex:none;width:12px;height:12px;border-radius:4px;margin-top:4px}
+.vz-t{font-weight:800;font-size:14px;color:var(--ink)}
+.vz-t small{font-weight:600;font-size:11.5px;color:var(--muted);margin-left:6px}
+.vz-z{font-size:13px;line-height:1.5;color:var(--text);margin-top:1px}
+@media(max-width:640px){.vz-legend{grid-template-columns:1fr}}
+@media print{.vz-bar,.vz-legend{page-break-inside:avoid;break-inside:avoid}}
 """
 
 VERSLAG_JS = """

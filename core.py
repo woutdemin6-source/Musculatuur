@@ -418,7 +418,8 @@ def build_summary(df: pd.DataFrame, athlete: str, today: pd.Timestamp) -> dict:
 # terugwerkend gepland vanaf de wedstrijddatum; 3:1-belasting/hersteld-ritme binnen een blok)
 # en Jan Olbrecht (aerobe capaciteit wordt als eerste en langst opgebouwd; drempel- en
 # anaerobe prikkels worden bewust pas laat en gericht ingezet, op de aerobe basis die er al
-# ligt, i.p.v. vroeg in het seizoen). De taper is vast: 2 weken, week -2 op 60% volume,
+# ligt, i.p.v. vroeg in het seizoen). Vaste opbouw per A-doel: base → 12 weken build → 1 week
+# taper → wedstrijdweek. De taper is vast: 2 weken, week -2 op 60% volume,
 # wedstrijdweek op 40% volume met behoud van intensiteit (expliciet zo gevraagd).
 #
 # Dit is een voorstel op macro/mesocyclus-niveau (geen dag-per-dag trainingsschema) dat
@@ -426,6 +427,8 @@ def build_summary(df: pd.DataFrame, athlete: str, today: pd.Timestamp) -> dict:
 # concrete sessies en past het aan op individuele context (klachten, wedstrijdkalender,
 # levensfase, ...) - precies de "AI assisteert, coach beslist"-filosofie van de tool.
 # ---------------------------------------------------------------------------
+
+BUILD_WEKEN = 12   # vaste regel: 12 weken build vóór de taperweek en de wedstrijdweek
 
 FASE_INFO = {
     'transitie': {
@@ -813,24 +816,18 @@ def _plan_segment(start, race_monday, is_first_segment, startaanpassing, goal_na
                                   'de sweet spot, dus eerst afbouwen/stabiliseren voor de opbouw start.')
         elif startaanpassing['type'] == 'te_laag':
             extra_basis = 1
-            stabilisatie_note = ('Basis 1 is een week langer voorzien: de recente belasting stond onder '
-                                  'de sweet spot, dus extra tijd om de aerobe basis terug op te bouwen.')
+            stabilisatie_note = ('De recente belasting stond onder de sweet spot: start de basis rustig en '
+                                  'bouw het volume geleidelijk terug op (max. ~5-10% per week).')
 
-    piek_weeks = 1 if remaining >= 6 else 0
-    remaining -= piek_weeks
-
-    opbouw_weeks = 0
-    if remaining >= 2:
-        opbouw_weeks = min(max(1, round(remaining * 0.35)), remaining)
-    # Alleen als er ook echt een week van Opbouw naar Basis verschuift, klopt de stabilisatie-notitie
-    # verderop nog met het gegenereerde schema — bij een kort blok (opbouw_weeks <= 1) gebeurt die
-    # verschuiving niet, en mag de notitie dan ook niet getoond worden.
-    basis_extended = bool(extra_basis and opbouw_weeks > 1)
-    if basis_extended:
-        # verschuif 1 week van Opbouw naar Basis i.p.v. het totaal aantal weken op te rekken
-        # (de wedstrijddatum/taper ligt vast) — de extra basisweek komt dus uit het opbouwblok.
-        opbouw_weeks -= 1
+    # Vaste regel voor een A-doel (De Musculatuur): wedstrijdweek + 1 week taper, daarvoor 12 weken
+    # build (opbouw), en alles daarvóór is base. Geen apart piekblok: de scherpte zit in het slot
+    # van de build. Is er minder tijd, dan gaat die eerst naar de build en krimpt de base.
+    piek_weeks = 0
+    opbouw_weeks = min(BUILD_WEKEN, remaining)
+    basis_extended = False
     basis_weeks = remaining - opbouw_weeks
+    if basis_weeks > 0 and extra_basis:
+        basis_extended = True   # notitie bij Basis 1: rustig (her)opbouwen na een periode van lage belasting
 
     blocks = []
     if transitie_weeks:
