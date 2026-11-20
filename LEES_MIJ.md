@@ -92,7 +92,7 @@ volledig intakeverslag, in dezelfde opmaak als het lactaatrapport. Het verloop, 
    Teams-transcript of eigen notities).
 3. **Nalezen** — alles staat in een formulier; de coach corrigeert en klikt "Verslag maken & bewaren".
 4. **Verslag** — voorblad, 11 genummerde secties (incl. de vaste teksten over pakketten,
-   TrainingPeaks, zones en afspraken), adviesblok en checklist. "Bewaar als PDF" gebruikt de
+   Coachbox, zones en afspraken), adviesblok en checklist. "Bewaar als PDF" gebruikt de
    printfunctie van de browser (A4), net als de prestatietest-suite. Het verslag wordt als document
    bij de atleet bewaard (profiel wordt aangemaakt of aangevuld: sport, doel, contact, samenvatting)
    en kan later via Atleten → Openen opnieuw bekeken of aangepast worden.

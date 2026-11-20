@@ -35,34 +35,33 @@ COACH_STANDAARD = {'naam': 'Wout Demin', 'email': 'woutdemin6@gmail.com', 'gsm':
 
 PAKKETTEN = [
     {'key': 'lopen_fietsen', 'naam': 'Lopen / Fietsen', 'prijs': '€75 / maand',
-     'punten': ['Tweewekelijks trainingsschema op maat', 'Gebruik van Coachbox of TrainingPeaks',
+     'punten': ['Tweewekelijks trainingsschema op maat', 'Gebruik van Coachbox',
                 'Toegang tot De Musculatuur-evenementen']},
     {'key': 'multisport', 'naam': 'Multisport', 'prijs': '€100 / maand',
      'punten': ['Wekelijks gepersonaliseerd trainingsschema', 'Individuele opvolging',
-                'Gebruik van Coachbox of TrainingPeaks', 'Toegang tot evenementen']},
+                'Gebruik van Coachbox', 'Toegang tot evenementen']},
     {'key': 'system_complete', 'naam': 'System Complete', 'prijs': '€140 / maand',
      'punten': ['Volledige begeleiding met wekelijkse schema\'s', 'Maandelijkse sportmassage',
-                '1 sessie per maand in het recovery circuit', 'Gebruik van Coachbox of TrainingPeaks',
+                '1 sessie per maand in het recovery circuit', 'Gebruik van Coachbox',
                 'Toegang tot alle evenementen']},
 ]
 PAKKET_LABELS = {p['key']: f"{p['naam']} — {p['prijs']}" for p in PAKKETTEN}
 
 # Vaste teksten uit het intake-sjabloon van De Musculatuur (staan in elk verslag).
 IN_PAKKET = [
-    ('Gepersonaliseerd wekelijks trainingsschema', 'via TrainingPeaks, volledig afgestemd op jouw doelen en niveau.'),
+    ('Gepersonaliseerd wekelijks trainingsschema', 'via Coachbox, volledig afgestemd op jouw doelen en niveau.'),
     ('Feedback en bijsturing', 'actieve analyse en aanpassing van je schema op basis van uitgevoerde trainingen.'),
     ('Data-analyse', 'diepgaande analyse van trainingsdata zoals hartslag, vermogen, RPE en progressie.'),
     ('Tussentijdse evaluatie', 'regelmatige check-ins om de voortgang te bespreken, op vraag van de atleet (telefonisch).'),
-    ('Communicatie', 'directe lijn met je coach via TrainingPeaks, telefoon, Teams of WhatsApp.'),
+    ('Communicatie', 'directe lijn met je coach via Coachbox, telefoon, Teams of WhatsApp.'),
     ('Community', 'toegang tot community-activiteiten en motiverende groepssessies.'),
 ]
-TRAININGPEAKS_INTRO = ('TrainingPeaks is het platform waarmee De Musculatuur samenwerkt om trainingen efficiënt te '
-                       'plannen, op te volgen en te analyseren. Het is de centrale hub voor onze coaching.')
-TRAININGPEAKS = [
+COACHBOX_INTRO = ('Coachbox is het platform waarmee De Musculatuur samenwerkt om trainingen efficiënt te '
+                  'plannen, op te volgen en te analyseren. Het is de centrale hub voor onze coaching.')
+COACHBOX = [
     ('Week- en maandplanning', 'een helder overzicht van jouw persoonlijke schema.'),
-    ('Directe feedback', 'commentaar geven en ontvangen bij elke specifieke training.'),
-    ('Analyse van belasting', 'inzicht in je trainingsbelasting, fitheid en vermoeidheid om overtraining te voorkomen.'),
-    ('Notificaties', 'automatische meldingen bij updates of nieuwe schema\'s.'),
+    ('Directe feedback', 'commentaar geven en ontvangen bij je trainingen.'),
+    ('Opvolging', 'je coach volgt je uitgevoerde trainingen op en stuurt bij waar nodig.'),
     ('Evolutie-overzicht', 'volg je progressie per week, maand of trainingsblok.'),
 ]
 ZONES_INTRO = ('Om de effectiviteit van je training te maximaliseren, werken we met zeven gestructureerde '
@@ -79,7 +78,7 @@ ZONES = [
 ]
 AFSPRAKEN_STANDAARD = {
     'feedback': 'De frequentie van feedback gebeurt op vraag van de atleet; bij vragen contacteer je de coach.',
-    'communicatie': 'De primaire communicatie verloopt via de TrainingPeaks-commentaren. Voor dringende zaken is de telefoon beschikbaar.',
+    'communicatie': 'De primaire communicatie verloopt via Coachbox. Voor dringende zaken is de telefoon beschikbaar.',
     'aanpassingen': 'Aanpassingen aan het trainingsschema worden doorgaans binnen 48 uur na een feedbackmoment doorgevoerd.',
     'verwachtingen': 'Voor een optimale begeleiding verwachten we regelmatige en eerlijke trainingsfeedback, en consistent gebruik van notities om de planning te optimaliseren.',
 }
@@ -253,7 +252,7 @@ def transcriptie_hint(atleet_naam='', coach_naam=''):
     namen = ', '.join(n for n in [atleet_naam, coach_naam] if n)
     return ('Intakegesprek bij De Musculatuur (coaching voor triatlon, lopen, fietsen en zwemmen). '
             f'{"Namen: " + namen + ". " if namen else ""}'
-            'Termen: TrainingPeaks, Coachbox, Ironman, halve triatlon, lactaattest, critical power, FTP, '
+            'Termen: Coachbox, TrainingPeaks, Ironman, halve triatlon, lactaattest, critical power, FTP, '
             'VO2max, zone 2, drempel, Lievegem, Zwift, Garmin, Strava.')
 
 
@@ -827,16 +826,16 @@ def verslag_html(v, extra_html='', titel='Intakeverslag', eyebrow='Intake · Ver
   <div class="pk">{''.join(pakket_kaart(p) for p in PAKKETTEN)}</div>
 </div>"""
 
-    # 7 · In je pakket, 8 · TrainingPeaks, 9 · Zones
+    # 7 · In je pakket, 8 · Coachbox, 9 · Zones
     s7 = f"""
 <div class="rsec"><h3 data-n="7">Wat zit er in je pakket?</h3>
   <p>Afhankelijk van het gekozen pakket omvat onze coaching standaard deze elementen om jouw prestaties te optimaliseren:</p>
   <ul class="bul">{''.join(f'<li><b>{_e(k)}:</b> {_e(t)}</li>' for k, t in IN_PAKKET)}</ul>
 </div>"""
     s8 = f"""
-<div class="rsec"><h3 data-n="8">TrainingPeaks</h3>
-  <p>{_e(TRAININGPEAKS_INTRO)}</p>
-  <ul class="bul">{''.join(f'<li><b>{_e(k)}:</b> {_e(t)}</li>' for k, t in TRAININGPEAKS)}</ul>
+<div class="rsec"><h3 data-n="8">Coachbox</h3>
+  <p>{_e(COACHBOX_INTRO)}</p>
+  <ul class="bul">{''.join(f'<li><b>{_e(k)}:</b> {_e(t)}</li>' for k, t in COACHBOX)}</ul>
 </div>"""
     rijen = ''.join(
         f'<tr><td><span class="zc" style="background:{kleur}"></span><span class="zn">{z}</span> · {_e(n)}</td>'
@@ -883,7 +882,7 @@ def verslag_html(v, extra_html='', titel='Intakeverslag', eyebrow='Intake · Ver
     <div class="rt"><small>{_e(sport)} · Rapport</small>{_e(titel)}</div>
     <div class="rr">{logo_head}<span class="rdisc">{_e(sport)}</span></div>
   </div>
-  {s4}{extra_html}{s1}{s2}{s3}{s5}{s6}{s7}{s8}{s9}{s10}{s11}
+  {s1}{s4}{extra_html}{s2}{s3}{s5}{s6}{s7}{s8}{s9}{s10}{s11}
   {voet}
 </div>"""
     # Secties doorlopend nummeren in de volgorde waarin ze nu staan
