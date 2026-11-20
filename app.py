@@ -250,12 +250,19 @@ section[data-testid="stSidebar"], [data-testid="stSidebarCollapsedControl"], [da
 .dm-pop-sep {{ height: 1px; background: var(--line); margin: .3rem 0 .5rem; }}
 
 /* ---------- Atletenlijst ---------- */
-.dm-roster-head {{ display: grid; grid-template-columns: 2.3fr 1fr 1.9fr 2.6fr .95fr; gap: 1rem; padding: .8rem 1.1rem .4rem;
+.dm-roster-head {{ display: grid; grid-template-columns: 2.2fr 1fr 1.8fr 2.5fr 1.35fr; gap: 1rem; padding: .8rem 1.1rem .4rem;
     font-size: .66rem; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }}
 [class*="st-key-rij_"] {{ background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: .55rem 1.1rem;
     margin-bottom: .1rem; box-shadow: var(--shadow); transition: box-shadow .15s ease, border-color .15s ease; }}
 [class*="st-key-rij_"]:hover {{ box-shadow: var(--shadow-hover); border-color: var(--line-strong); }}
 [class*="st-key-rij_"] p {{ margin: 0 !important; }}
+[class*="st-key-rij_open_"] button {{
+    min-height: 2.6rem !important; min-width: 7.5rem !important; padding: .55rem 1.2rem !important;
+    background: var(--green) !important; border: 1px solid var(--green) !important; color: #fff !important; border-radius: 999px !important;
+}}
+[class*="st-key-rij_open_"] button:hover {{ background: var(--green-dark) !important; border-color: var(--green-dark) !important; }}
+[class*="st-key-rij_open_"] button p {{ font-size: .92rem !important; font-weight: 700 !important; color: #fff !important;
+    white-space: nowrap !important; overflow: visible !important; line-height: 1.2 !important; }}
 .dm-who {{ display: flex; align-items: center; gap: .75rem; color: var(--ink); }}
 .dm-who .dm-avatar {{ width: 36px; height: 36px; font-size: .78rem; flex: none; }}
 .dm-cell {{ font-size: .9rem; color: var(--text); }}
@@ -758,13 +765,13 @@ def render_roster():
         chips = (chip('intake' in soorten, 'Intake') + chip('belastbaarheid' in soorten, 'Belasting')
                  + chip(bool(info.get('goals')), 'Plan') + chip('traject' in soorten, 'Verslag'))
         with st.container(key=f"rij_{a['id']}"):
-            c1, c2, c3, c4, c5 = st.columns([2.3, 1, 1.9, 2.6, 0.95], vertical_alignment='center')
+            c1, c2, c3, c4, c5 = st.columns([2.2, 1, 1.8, 2.5, 1.35], vertical_alignment='center')
             c1.markdown(f'<div class="dm-who"><div class="dm-avatar">{intake._e(_initialen(a["naam"]))}</div>'
                         f'<b>{intake._e(a["naam"])}</b></div>', unsafe_allow_html=True)
             c2.markdown(f'<span class="dm-cell">{intake._e(a.get("sport") or "—")}</span>', unsafe_allow_html=True)
             c3.markdown(f'<span class="dm-cell">{doel}</span>', unsafe_allow_html=True)
             c4.markdown(f'<div class="dm-chips">{chips}</div>', unsafe_allow_html=True)
-            if c5.button('Openen', key=f"rij_open_{a['id']}", use_container_width=True):
+            if c5.button('Openen →', key=f"rij_open_{a['id']}", type='primary', use_container_width=True):
                 _kies_atleet(a)
                 goto(PAGE_DASHBOARD)
 
